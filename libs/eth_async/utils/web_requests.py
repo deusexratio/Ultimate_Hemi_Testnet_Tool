@@ -45,21 +45,22 @@ async def async_get(url: str, headers: dict | None = None, **kwargs) -> dict | N
         Optional[dict]: received dictionary in response.
 
     """
-
-    async with AsyncSession() as session:
-        response = await session.get(
-            url=url,
-            headers=headers,
-            **kwargs,
-            # params=params,
-            # proxy=proxy_url
-        )
-        # print(response)
-        status_code = response.status_code
-        response = response.json()
-        if status_code <= 201:
-            return response
-        raise exceptions.HTTPException(response=response, status_code=status_code)
+    try:
+        async with AsyncSession() as session:
+            response = await session.get(
+                url=url,
+                headers=headers,
+                **kwargs,
+                # params=params,
+                # proxy=proxy_url
+            )
+            # print(response)
+            status_code = response.status_code
+            response = response.json()
+            if status_code <= 201:
+                return response
+    except exceptions.HTTPException(response=response, status_code=status_code) as e:
+        return e
 
 
 async def async_post(url: str,

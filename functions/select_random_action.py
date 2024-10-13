@@ -32,14 +32,16 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     dai_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_DAI)
     usdt_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_USDT)
 
-    print(f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {usdc_balance_sepolia.Ether}; '
+    print(f'{wallet}: '
+          f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {usdc_balance_sepolia.Ether}; '
           f'dai: {dai_balance_sepolia.Ether}; usdt: {usdt_balance_sepolia.Ether}')
 
     usdc_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_USDCe)
     dai_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_DAI)
     usdt_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_USDTe)
 
-    print(f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {usdc_balance_hemi.Ether}; '
+    print(f'{wallet}: '
+          f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {usdc_balance_hemi.Ether}; '
           f'dai: {dai_balance_hemi.Ether}; usdt: {usdt_balance_hemi.Ether}')
 
     if not sufficient_balance_eth_sepolia:

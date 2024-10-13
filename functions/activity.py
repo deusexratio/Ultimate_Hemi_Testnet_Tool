@@ -19,11 +19,6 @@ from tasks.controller import Controller
 from functions.select_random_action import select_random_action
 from utils.update_expired import update_next_action_time, update_today_activity
 
-# todo: разобраться до конца с исключением по газу,
-#  а также ValueError: {'code': -32000, 'message': 'replacement transaction underpriced'}
-#  вот такое еще было ValueError: {'code': -32000, 'message': 'already known'}
-#  и такое ValueError: {'code': -32000, 'message': 'nonce too low: next nonce 6, tx nonce 5'}
-
 # now it's working only in sepolia
 async def hourly_check_failed_txs(contract: RawContract | str,
                                   function_names: str | list[str] | None = None,
@@ -202,6 +197,7 @@ async def activity(queue, tasks_num):
     await asyncio.sleep(random.randint(5, 15))  # sleep to one of the tasks become first and put wallet to queue
     delay = 5
     while True:
+        # todo: поиграться с рандомизированием выбора кошелька
         try:
             settings = Settings()  # проверить чтобы настройки обновлялись каждую итерацию, в цикле вроде не работало
             # Fill in next action time for newly initialized wallets in DB
@@ -230,8 +226,8 @@ async def activity(queue, tasks_num):
 
             # Pick an action for selected wallet
             action = await select_random_action(wallet=wallet)
-            if action:  # debug
-                print(wallet, action)  # debug
+            # if action:  # debug
+            #     print(wallet, action)  # debug
 
             sepolia_action_list = [
                 controller.sepolia.deposit_eth_to_hemi, controller.sepolia.bridge_dai_to_hemi,
@@ -311,7 +307,7 @@ async def activity(queue, tasks_num):
                 )
                 )
                 next_action_time = db.one(stmt=stmt)
-                logger.info(f'The next closest activity action will be performed at {next_action_time}') # todo: fix request
+                logger.info(f'The next closest activity action will be performed at {next_action_time}')
 
             else:
                 update_next_action_time(private_key=wallet.private_key, seconds=DELAY_IN_CASE_OF_ERROR)

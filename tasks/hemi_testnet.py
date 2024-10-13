@@ -128,7 +128,7 @@ class Hemi(Base):
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
         if tx is None:
             try:
-                tx_params['gas'] = random.randint(700000, 1000000)
+                # tx_params['gas'] = random.randint(700000, 1000000)
                 tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
                 receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
                 if receipt:
@@ -136,7 +136,7 @@ class Hemi(Base):
             except AttributeError:
                 return failed_text
         elif type(tx) is str:
-            return f'{failed_text} | tx'
+            return f'{failed_text} | {tx}'
         else:
             # API doesn't work now so no checking tx
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
@@ -225,8 +225,9 @@ class Hemi(Base):
             corrected_path = '0x' + path.hex()[24:]
             corrected_path = corrected_path.replace(
                 "0000000000000000000000000000000000000000000000000000000000000bb80000000000000000000000000",
-                "000bb80"
+                "0027100"
                 # 0027100
+                # 000bb80
             )
 
             bytes_path = encode(
@@ -500,7 +501,7 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            return f'{failed_text} | tx'
+            return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
         check_tx_error = await Base.check_tx(str(tx.hash))
 
@@ -569,7 +570,7 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            return f'{failed_text} | tx'
+            return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
         check_tx_error = await Base.check_tx(tx.hash.hex())
 

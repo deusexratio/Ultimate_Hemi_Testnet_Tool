@@ -67,6 +67,8 @@ class Base:
             return False
         elif type(tx) is not str:
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
+        elif type(tx) is None:
+            return False
         else:
             return False
 

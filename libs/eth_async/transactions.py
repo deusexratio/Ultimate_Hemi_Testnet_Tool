@@ -3,12 +3,14 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING, Any
 
+
 from eth_typing import HexStr
 from hexbytes import HexBytes
 
 from web3 import Web3, AsyncWeb3
 from web3.middleware import geth_poa_middleware
 from web3.types import TxReceipt, _Hash32, TxParams
+from web3.exceptions import TimeExhausted
 from eth_account.datastructures import SignedTransaction
 
 from .data import types
@@ -356,9 +358,12 @@ class Transactions:
             Dict[str, Any]: the transaction receipt.
 
         """
-        return dict(await w3.eth.wait_for_transaction_receipt(
-            transaction_hash=tx_hash, timeout=timeout, poll_latency=poll_latency
-        ))
+        try:
+            return dict(await w3.eth.wait_for_transaction_receipt(
+                transaction_hash=tx_hash, timeout=timeout, poll_latency=poll_latency
+            ))
+        except TimeExhausted:
+            return {}
 
     async def approve(
             self, token: types.Contract, spender: types.Address, amount: types.Amount | None = None,
