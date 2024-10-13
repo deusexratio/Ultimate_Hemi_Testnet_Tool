@@ -74,7 +74,7 @@ class Hemi(Base):
                     await asyncio.sleep(random.randint(10, 15))
                     print(f'{self.client.account.address} : approved {token.title} for capsule')
                 else:
-                    return f'{self.client.account.address} | can not approve'
+                    return f'{failed_text} | can not approve'
                 break
             token_list.remove(token)
 
@@ -130,6 +130,9 @@ class Hemi(Base):
             try:
                 tx_params['gas'] = random.randint(700000, 1000000)
                 tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
+                if receipt:
+                    return f'{self.client.account.address} : {amount.Ether} {token.title} Created capsule: {tx.hash.hex()}'
             except AttributeError:
                 return failed_text
         elif type(tx) is str:
@@ -196,6 +199,11 @@ class Hemi(Base):
         elif route == 'token_to_eth':
             wallet_amount = await self.client.wallet.balance(token=token)
             # print(wallet_amount)
+            amount_out = await Hemi.get_price_to_swap(self.client, route=route,
+                                                      token=token, amount_token=amount_token)
+            amount_eth = amount_out
+            failed_text = (f'{self.client.account.address} Failed to swap {amount_token.Ether} {token_name} '
+                           f'for {amount_out.Ether} ETH via Swap')
             if wallet_amount == 0:
                 approve_amount = random.randint(100000, 1000000)
                 approved = await self.approve_interface(token_address=token.address,
@@ -205,13 +213,7 @@ class Hemi(Base):
                     await asyncio.sleep(random.randint(10, 15))
                     print(f'{self.client.account.address} : approved {token_name}')
                 else:
-                    return f'{self.client.account.address} | can not approve'
-
-            amount_out = await Hemi.get_price_to_swap(self.client, route=route,
-                                                              token=token, amount_token=amount_token)
-            amount_eth = amount_out
-            failed_text = (f'{self.client.account.address} Failed to swap {amount_token.Ether} {token_name} '
-                           f'for {amount_out.Ether} ETH via Swap')
+                    return f'{failed_text} | can not approve'
 
             value = 0
             commands = '0x000c'
@@ -370,7 +372,7 @@ class Testnet_Bridge(Base):
     @staticmethod
     async def get_price_seth(client: Client,
                              amount_eth: TokenAmount | None = None,
-                             slippage: float = 5) -> int | None:
+                             slippage: float = 5) -> int | str:
         headers = {
             'accept': '*/*',
             'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -419,7 +421,7 @@ class Testnet_Bridge(Base):
                                     headers=headers, data=data, proxy=client.proxy)
         except HTTPException as e:
             print(e)
-            return None
+            return f"{client.account.address} : couldn't get SETH price"
         seth_price = response['quote']['quoteGasAndPortionAdjusted']
         return int(seth_price) # returns int in wei
 
@@ -466,7 +468,7 @@ class Testnet_Bridge(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            return f'{failed_text} | tx'
+            return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=client, timeout=500)
         check_tx_error = await Base.check_tx(str(tx.hash))
 
@@ -614,7 +616,7 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            return f'{failed_text} | tx'
+            return f'{failed_text} | {tx}'
             # try:
             #     tx_params['gas'] = 1000000
             #     tx = await self.client.transactions.sign_and_send(tx_params=tx_params)

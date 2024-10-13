@@ -289,9 +289,6 @@ async def activity(queue, tasks_num):
                     seconds=random.randint(settings.activity_actions_delay.from_,
                                            settings.activity_actions_delay.to_)
                 )
-                # print(status)
-                # wallet.today_activity_eth += 1
-                # db.commit()
                 logger.success(f'{wallet}: {status}')
 
                 if 'ETH was bridged to Hemi via official bridge' in status:
