@@ -1,0 +1,65 @@
+[
+     {
+      "inputs":[
+            {
+              "components": [
+                  {
+                      "internalType": "bytes[]",
+                      "name": "tokenAndAmount",
+                      "type": "bytes[]"
+                  },
+                  {
+                  "internalType": "string",
+                  "name": "infuraLink",
+                  "type": "string"
+                }
+              ],
+                  "internalType": "struct packageContent_",
+                  "name": "steps",
+                  "type": "tuple"
+                },
+              {
+              "components": [
+                  {
+                    "internalType": "bytes32",
+                    "name": "",
+                    "type": "bytes32"
+                  },
+                  {
+                    "internalType": "uint64",
+                    "name": "",
+                    "type": "uint64"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                  }
+              ],
+                  "internalType": "struct securityInfo_[]",
+                  "name": "securityInfo_",
+                  "type": "tuple"
+                },
+                {
+                    "internalType": "address",
+                    "name": "receiver",
+                    "type": "address"
+                }
+      ],
+      "name":"shipPackage",
+      "outputs": [
+          {
+            "internalType":"package id",
+            "name":"",
+            "type":"uint32"
+         }
+      ],
+      "stateMutability":"payable",
+      "type":"function"
+   }
+]
