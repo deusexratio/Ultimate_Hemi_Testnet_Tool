@@ -53,7 +53,7 @@ class Hemi(Base):
         if not amount:
             amount = Base.get_token_amount_for_capsule(token=token)
 
-        failed_text = f'{self.client.account.address} : Failed to create capsule {amount} {token.title} via Capsule'
+        failed_text = f'{self.client.account.address} : Failed to create capsule {amount.Ether} {token.title} via Capsule'
 
         contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Capsule)
         random.shuffle(token_list)
