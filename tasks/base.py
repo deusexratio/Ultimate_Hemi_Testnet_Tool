@@ -100,7 +100,7 @@ class Base:
             amount=randfloat(
                 from_=settings.eth_amount_for_swap.from_,
                 to_=settings.eth_amount_for_swap.to_,
-                step=0.01
+                step=0.0000001
             )
         )
 
