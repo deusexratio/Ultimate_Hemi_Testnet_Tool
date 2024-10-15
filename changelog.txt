@@ -1,8 +1,8 @@
 v1.0.2
 - !!! CRITICAL !!! fixed approvals for creating capsule
 - !!! CRITICAL !!! fixed approvals for swaps
-(now swaps work both ways and capsule works fine)
-- !!! CRITICAL !!! fixed gnosis safe creation (DO)
+(although still need to add sign message for approval, coming next version)
+- !!! CRITICAL !!! fixed gnosis safe creation
 - fixed daily auto reset
 - fixed proxy usage
 - changed wallet selection method (now queue fills correctly without repeating wallets)
@@ -11,4 +11,4 @@ v1.0.2
 Plans for future:
 - tune up logs
 - dig into failing to swap dai to eth (guess will need to give approve by signing message)
-- also I think creating safe doesn't give points, maybe will investigate later
+- also I think creating safe doesn't give points (despite raw input data seeming to be correct), maybe will investigate later
