@@ -5,6 +5,7 @@ import aiohttp
 from libs.eth_async.client import Client
 from libs.eth_async.data.models import TokenAmount, TxStatus, Networks, Network, APIFunctions, RawContract
 from libs.eth_async.blockscan_api import Transaction
+from libs.eth_async.transactions import Tx
 from libs.eth_async.utils.utils import randfloat
 
 from data.models import Settings, Contracts
@@ -63,12 +64,8 @@ class Base:
             amount=amount
         )
 
-        if type(tx) is str:
-            return False
-        elif type(tx) is not str:
+        if isinstance(tx, Tx):
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-        elif type(tx) is None:
-            return False
         else:
             return False
 
@@ -85,6 +82,7 @@ class Base:
 
     @staticmethod
     def parse_params(params: str, has_function: bool = True, has_0x: bool = True):
+        # used for inspecting raw input of transactions
         if has_function:
             function_signature = params[:10]
             print('function_signature', function_signature)
@@ -146,7 +144,7 @@ class Base:
             amount=randfloat(
                 from_=settings.stable_faucet_amount.from_,
                 to_=settings.stable_faucet_amount.to_,
-                step=0.0000001),
+                step=0.001),
             decimals=token.decimals
         )
 

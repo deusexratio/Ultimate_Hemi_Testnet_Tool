@@ -254,7 +254,7 @@ class Networks:
         name='hemi testnet',
         rpc='https://testnet.rpc.hemi.network/rpc',
         chain_id=743111,
-        tx_type=2,  # по сканеру так
+        tx_type=2,  # по сканеру 2, но многие транзы уходят с 0
         coin_symbol='ETH',
         decimals=18,
         explorer='https://testnet.explorer.hemi.xyz',

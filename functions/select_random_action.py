@@ -26,15 +26,11 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     sufficient_balance_eth_sepolia = float(eth_balance_sepolia.Ether) > settings.minimal_balance_sepolia # + settings.eth_amount_for_bridge.to_
 
     eth_balance_hemi = await client_hemi.wallet.balance()
-    sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > 0.05
+    sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > float(settings.eth_amount_for_swap.from_ * 2)
 
     usdc_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_USDC)
     dai_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_DAI)
     usdt_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_USDT)
-
-    print(f'{wallet}: '
-          f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {usdc_balance_sepolia.Ether}; '
-          f'dai: {dai_balance_sepolia.Ether}; usdt: {usdt_balance_sepolia.Ether}')
 
     usdc_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_USDCe)
     dai_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_DAI)
@@ -42,7 +38,10 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
 
     print(f'{wallet}: '
           f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {usdc_balance_hemi.Ether}; '
-          f'dai: {dai_balance_hemi.Ether}; usdt: {usdt_balance_hemi.Ether}')
+          f'dai: {dai_balance_hemi.Ether}; usdt: {usdt_balance_hemi.Ether}\n'
+          f'{wallet}: '
+          f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {usdc_balance_sepolia.Ether}; '
+          f'dai: {dai_balance_sepolia.Ether}; usdt: {usdt_balance_sepolia.Ether}')
 
     if not sufficient_balance_eth_sepolia:
         if settings.use_autorefill is True:
@@ -84,10 +83,9 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         return action
 
 
-
     # make first erc20 bridges to hemi random but with probability to bridge eth
-    if (usdc_balance_hemi.Ether < 10000 and usdt_balance_hemi.Ether < 10000
-            and dai_balance_hemi.Ether < 10000 and not sufficient_balance_eth_hemi):
+    if (usdc_balance_hemi.Ether < 1000 and usdt_balance_hemi.Ether < 1000
+            and dai_balance_hemi.Ether < 1000 and not sufficient_balance_eth_hemi):
         possible_actions = [
             controller_sepolia.sepolia.bridge_usdc_to_hemi,
             controller_sepolia.sepolia.bridge_usdt_to_hemi,
@@ -99,7 +97,7 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         return action
 
     # make first erc20 bridges to hemi random
-    if usdc_balance_hemi.Ether < 10000 and usdt_balance_hemi.Ether < 10000 and dai_balance_hemi.Ether < 10000:
+    if usdc_balance_hemi.Ether < 1000 and usdt_balance_hemi.Ether < 1000 and dai_balance_hemi.Ether < 1000:
         possible_actions = [
             controller_sepolia.sepolia.bridge_usdc_to_hemi,
             controller_sepolia.sepolia.bridge_usdt_to_hemi,
@@ -110,13 +108,13 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         return action
 
     # refill balances when used
-    if usdc_balance_sepolia.Ether < 10000:
+    if usdc_balance_sepolia.Ether < settings.erc20_amount_to_bridge.to_:
         action = controller_sepolia.sepolia.faucet_usdc
         return action
-    if usdt_balance_sepolia.Ether < 10000:
+    if usdt_balance_sepolia.Ether < settings.erc20_amount_to_bridge.to_:
         action = controller_sepolia.sepolia.faucet_usdt
         return action
-    if dai_balance_sepolia.Ether < 10000:
+    if dai_balance_sepolia.Ether < settings.erc20_amount_to_bridge.to_:
         action = controller_sepolia.sepolia.faucet_dai
         return action
 
@@ -139,23 +137,55 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         action = controller_sepolia.sepolia.deposit_eth_to_hemi
         return action
 
-    if (wallet.today_activity_swaps < 2 and wallet.twice_weekly_capsule < 2
-            and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_):
+    # if nothing is done select any action in Hemi
+    if (wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_
+        and wallet.twice_weekly_capsule < 2 and wallet.safe_created is False):
         possible_actions = [
             controller_hemi.hemi.create_capsule,
-            controller_hemi.hemi.swap_dai # only dai swaps for now
+            controller_hemi.hemi.swap_dai,   # only dai swaps for now
+            controller_hemi.hemi.create_safe
+        ]
+        weights = [1, 1, 1]
+        action = random.choices(possible_actions, weights=weights)[0]
+        return action
+
+    if (wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_
+        and wallet.safe_created is False):
+        possible_actions = [
+            controller_hemi.hemi.swap_dai,   # only dai swaps for now
+            controller_hemi.hemi.create_safe
         ]
         weights = [1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
         return action
 
+    if wallet.twice_weekly_capsule < 2 and wallet.safe_created is False:
+        possible_actions = [
+            controller_hemi.hemi.create_capsule,
+            controller_hemi.hemi.create_safe
+        ]
+        weights = [1, 1]
+        action = random.choices(possible_actions, weights=weights)[0]
+        return action
+
+    # same but without safe
+    if (wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_
+        and wallet.twice_weekly_capsule < 2):
+        possible_actions = [
+            controller_hemi.hemi.create_capsule,
+            controller_hemi.hemi.swap_dai,   # only dai swaps for now
+        ]
+        weights = [1, 1]
+        action = random.choices(possible_actions, weights=weights)[0]
+        return action
+
+    # strict when only one activity left
     if wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_:
         action = controller_hemi.hemi.swap_dai
         return action
     if wallet.twice_weekly_capsule < 2:
         action = controller_hemi.hemi.create_capsule
         return action
-
     if wallet.safe_created is False:
         action = controller_hemi.hemi.create_safe
         return action

@@ -3,17 +3,17 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "singleton",
+        "name": "_singleton",
         "type": "address"
       },
       {
         "internalType": "bytes",
-        "name": "data",
+        "name": "initializer",
         "type": "bytes"
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "saltNonce",
         "type": "uint256"
       }
     ],

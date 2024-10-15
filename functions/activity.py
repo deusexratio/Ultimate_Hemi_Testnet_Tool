@@ -9,7 +9,7 @@ from sqlalchemy import select, func, or_, and_
 
 
 from libs.eth_async.client import Client
-from libs.eth_async.data.models import Network, Networks, TokenAmount, RawContract
+from libs.eth_async.data.models import Network, Networks, RawContract
 
 from data.models import Settings, Contracts
 from data.config import DELAY_IN_CASE_OF_ERROR
@@ -105,109 +105,109 @@ async def hourly_check_failed_txs(contract: RawContract | str,
         finally:
             await asyncio.sleep(3600)  # sleep to check statuses every hour
 
-
-async def auto_daily_reset_activities() -> bool:
+async def auto_daily_reset_activities():
     while True:
         try:
             now_utc_hour = int(datetime.now(timezone.utc).time().hour)
-            print(f'Current UTC hour: {now_utc_hour}')
-            if now_utc_hour == 0:
+            logger.info(f'Current UTC hour: {now_utc_hour}')
+            activities = ['depositETH', 'depositERC20',
+                          'swaps']  # 'capsule' ,
+            if now_utc_hour == 5:
                 for wallet in get_wallets():
-                    activities = ['depositETH', 'depositERC20',
-                                   'swaps'] # 'capsule' ,
                     update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
-                logger.info(f'Succesfully reset activities at {datetime.now()}')
+                logger.success(f'Succesfully reset activities at {datetime.now()}')
             await asyncio.sleep(1800)  # wait for next hour to try
-            return True
         except BaseException:
-            return False
+            logger.error('Something went wrong in auto_daily_reset_activities task')
 
-async def auto_reset_capsule() -> bool:
+async def auto_reset_capsule():
     while True:
         try:
-            await asyncio.sleep(259200) # sleep for three days
+            await asyncio.sleep(172800) # sleep for three days
             for wallet in get_wallets():
                 activities = 'capsule'
                 update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
             logger.info(f'Succesfully reset capsules at {datetime.now()}')
-            return True
         except BaseException:
-            return False
+            logger.error('Something went wrong in auto_reset_capsule task')
 
 def manual_daily_reset_activities() -> bool:
     try:
+        activities = ['depositETH', 'depositERC20',
+                      'swaps']  # 'capsule' ,
         for wallet in get_wallets():
-            activities = ['depositETH', 'depositERC20',
-                          'swaps', 'capsule']
             update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
         logger.info(f'Succesfully reset all activities except Safe at {datetime.now()}')
+        return True
     except BaseException:
+        logger.error('Something went wrong in manual_daily_reset_activities task')
         return False
 
+async def fill_queue(queue, tasks_num):
+    while True:
+        try:
+            if queue.full():
+                await asyncio.sleep(10) # todo: test
+                continue
+            while not queue.full():
+                q_size = queue.qsize()
+                stmt_start = (select(Wallet).where(
+                    or_(Wallet.today_activity_swaps < 2,
+                        Wallet.twice_weekly_capsule < 2,
+                        Wallet.safe_created.is_(False)
+                    )
+                ).where(Wallet.next_action_time <= datetime.now()
+                    ).order_by(Wallet.next_action_time).offset(q_size)  # pick wallet so far from top as q_size
+                            )
+                wallet: Wallet = db.one(Wallet, stmt=stmt_start)
+                q_size = queue.qsize()
+                await queue.put(wallet)
+        except BaseException:
+            logger.error('Something went wrong in fill_queue task')
+            return False
 
-async def select_wallet(queue, tasks_num):
-    if queue.empty():  # check if wallet is in queue
-        # print(queue)
-        stmt_start = (select(Wallet).where(
-            or_(Wallet.today_activity_swaps < 2,
-                Wallet.twice_weekly_capsule < 2,
-                Wallet.safe_created.is_(False)
-                )
-        ).where(Wallet.next_action_time <= datetime.now()
-                ).order_by(Wallet.next_action_time)
-                      )
-        wallet: Wallet = db.one(Wallet, stmt=stmt_start)
-        await queue.put(wallet)
-        return wallet
-    elif not queue.empty():
-        await asyncio.sleep(random.randint(5,100))
-        # random sleep to prevent intercepting same wallet by different coroutines
-        q_size: int = queue.qsize()
-        # get wallet just to put it out of queue
-        stmt_start = (select(Wallet).where(
-            or_(Wallet.today_activity_swaps < 2,
-                Wallet.twice_weekly_capsule < 2,
-                Wallet.safe_created.is_(False)
-                )
-        ).where(Wallet.next_action_time <= datetime.now()
-                ).order_by(Wallet.next_action_time).offset(q_size) # pick wallet so far from top as q_size
-                      )
-        wallet: Wallet = db.one(Wallet, stmt=stmt_start)
-        if not queue.empty(): # double check because collisions occur when trying to remove task
-            queue.get_nowait()
-        return wallet
+async def first_time_launch_db():
+    settings = Settings()
+    stmt_first = (select(Wallet).filter(Wallet.next_action_time.is_(None)))
+    first_time_wallets: Wallet = db.all(Wallet, stmt=stmt_first)
+    if isinstance(first_time_wallets, list):
+        random.shuffle(first_time_wallets)
+        for wallet in first_time_wallets:
+            logger.info(f'first time wallet: {wallet}')
+            wallet.next_action_time = (datetime.now() +
+                                       timedelta(seconds=random.randint(settings.activity_actions_delay.from_,
+                                                                        settings.activity_actions_delay.to_)))
+            db.insert(wallet)
+            logger.success(f'Successfully set first action time {wallet.next_action_time} for {wallet}')
+
 
 async def correct_next_action_time():
     # Check if next action time is assigned correctly
     # and if not, add 30 minutes to a wallet that has been already done
     while True:
         try:
+            settings = Settings()
             for wallet in get_wallets():
                 if wallet.today_activity_swaps >= 2 and wallet.twice_weekly_capsule >= 2 and wallet.safe_created:
-                    update_next_action_time(private_key=wallet.private_key, seconds=1800)
+                    seconds = random.randint(settings.activity_actions_delay.from_,
+                                                                   settings.activity_actions_delay.to_)
+                    update_next_action_time(private_key=wallet.private_key,
+                                            seconds=seconds)
                     logger.info(
-                        f'Added 30 minutes to next action time '
+                        f'Added {seconds} seconds to next action time '
                         f'for already done wallet: {wallet} : {wallet.next_action_time}')
             await asyncio.sleep(1800)
         except BaseException:
-            return False
+            logger.error('Something went wrong in correct_next_action_time task')
 
 
 async def activity(queue, tasks_num):
-    await asyncio.sleep(random.randint(5, 15))  # sleep to one of the tasks become first and put wallet to queue
     delay = 5
     while True:
-        # todo: поиграться с рандомизированием выбора кошелька
         try:
             settings = Settings()  # проверить чтобы настройки обновлялись каждую итерацию, в цикле вроде не работало
             # Fill in next action time for newly initialized wallets in DB
-            stmt_first = (select(Wallet).filter(Wallet.next_action_time.is_(None)))
-            first_time_wallet: Wallet = db.one(Wallet, stmt=stmt_first)
-
-            if first_time_wallet:
-                print(f'first_time_wallet: {first_time_wallet}')
-                first_time_wallet.next_action_time = datetime.now() + timedelta(seconds=random.randint(10, 20))
-                db.insert(first_time_wallet)
+            await first_time_launch_db()
 
             # Check if gas price is OK
             client_sep = Client(private_key='', network=Networks.Sepolia)
@@ -217,9 +217,10 @@ async def activity(queue, tasks_num):
             controller = Controller(client=client_hemi)
 
             # Select wallet from DB to do an activity
-            wallet = await select_wallet(queue,tasks_num)
-            # print(stmt_start)
-            print(f'{datetime.now().time().replace(microsecond=0)} : wallet: {wallet}')
+            wallet = await queue.get()
+            update_next_action_time(private_key=wallet.private_key, seconds=120) # put a lil bit away from queue
+            # todo: test (for now it's holding on 120)
+            logger.info(f'{datetime.now().time().replace(microsecond=0)} : wallet: {wallet}')
             if not wallet:
                 await asyncio.sleep(delay)
                 continue
@@ -278,6 +279,9 @@ async def activity(queue, tasks_num):
 
             # Launch action and process result of action: log what has been done or if action failed
             status = await action()
+
+            if status is None:
+                print(f'{action} : returned None')
 
             if 'Failed' not in status:
                 update_next_action_time(

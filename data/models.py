@@ -161,9 +161,21 @@ class Contracts(Singleton):
         abi=read_json(path=(ABIS_DIR, 'capsule.json'))
     )
 
+    Hemi_Capsule_Manager = RawContract(
+        title='TransparentUpgradeableProxy',
+        address='0x9398aa1fBB6A06f5790822e60Db8aaceB51a2bca',
+        abi=read_json(path=(ABIS_DIR, 'capsule.json'))
+    )
+
     Hemi_Swap = RawContract(
         title='Swap',
         address='0xA18019E62f266C2E17e33398448e4105324e0d0F',
+        abi=read_json(path=(ABIS_DIR, 'swap.json'))
+    )
+
+    Swap_DAI_approval = RawContract(
+        title='Swap',
+        address='0xB952578f3520EE8Ea45b7914994dcf4702cEe578',
         abi=read_json(path=(ABIS_DIR, 'swap.json'))
     )
 

@@ -6,8 +6,8 @@ from functions.create_files import create_files
 from functions.Import import Import
 from data.models import Settings, Contracts
 from functions.activity import (activity, hourly_check_failed_txs, correct_next_action_time,
-                                manual_daily_reset_activities, auto_daily_reset_activities, auto_reset_capsule)
-from libs.eth_async.data.models import Networks
+                        manual_daily_reset_activities, auto_daily_reset_activities, auto_reset_capsule,
+                        fill_queue, first_time_launch_db)
 from utils.db_api.wallet_api import get_wallets, display_insufficient_wallets
 
 
@@ -17,16 +17,25 @@ async def start_script(tasks_num: int = 1):
         logger.error('Specify the API key for explorer!')
         return
 
-    queue = asyncio.Queue()
-    activity_tasks = [# asyncio.create_task(
+    queue = asyncio.Queue(maxsize=tasks_num)
+    activity_tasks = [
+        # No need for now, something is wrong with responses (str instead of dict)
+        # Later if explorer API for Hemi will work I will implement same for swaps and capsule
+        # asyncio.create_task(
         # hourly_check_failed_txs(Contracts.Hemi_Bridge_Sepolia,
         #                        function_names=['depositETH', 'depositERC20'],
         #                       network=Networks.Sepolia)),
-        # no need for now, something is wrong with responses (str instead of dict)
 
-        asyncio.create_task(auto_daily_reset_activities()),
+        # Every 30 minutes check for done wallets that are late and correct their next action time
         asyncio.create_task(correct_next_action_time()),
-        asyncio.create_task(auto_reset_capsule())
+        # Once in 24 hours reset swaps and bridges in DB
+        asyncio.create_task(auto_daily_reset_activities()),
+        # Reset capsule status in DB every 2 days
+        asyncio.create_task(auto_reset_capsule()),
+        # Constantly refill queue with activity tasks
+        asyncio.create_task(fill_queue(queue,tasks_num)),
+        # Fill in next action time for newly initialized wallets in DB
+        asyncio.create_task(first_time_launch_db()),
     ]
 
     i = 1

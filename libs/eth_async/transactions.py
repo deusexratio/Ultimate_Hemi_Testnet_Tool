@@ -11,7 +11,10 @@ from web3 import Web3, AsyncWeb3
 from web3.middleware import geth_poa_middleware
 from web3.types import TxReceipt, _Hash32, TxParams
 from web3.exceptions import TimeExhausted
-from eth_account.datastructures import SignedTransaction
+from eth_account.datastructures import SignedTransaction, SignedMessage
+from eth_account.messages import encode_defunct
+from eth_account.account import Account
+
 
 from .data import types
 from .exceptions import TransactionException
@@ -420,8 +423,34 @@ class Transactions:
         contract = await self.client.contracts.default_token(contract_address=contract_address)
         return await contract.functions.decimals().call()
 
-    async def sign_message(self):
-        pass
+    async def sign_message(self, abi_types: list, params: list) -> SignedMessage:
+            """
+            Sign message
+            types: types of data, for example ["address", "uint256", ...]
+            params: params to sign. len(types) == len(params)
+            private key: customer private key
+            return signed message, containing v, r, s for tests
+            """
+            private_key=self.client.account.key
+            signature = self.client.w3.to_hex(self.client.w3.solidity_keccak(abi_types, params))
+            # signature = Web3.toHex(Web3.soliditySha3(types, params))
+            message = encode_defunct(hexstr=signature)
+            signed_message = self.client.w3.eth.account.sign_message(message, private_key)
+            res = Account.signHash(message.body, private_key)
+            return SignedMessage(
+                v=res.v,
+                r=self.client.w3.to_hex(res.r),
+                s=self.client.w3.to_hex(res.s),
+                messageHash=signed_message.messageHash
+            )
+    # todo: finish this
+
+    # class SignedMessage(NamedTuple):
+    #     messageHash: HexBytes
+    #     r: int
+    #     s: int
+    #     v: int
+    #     signature: HexBytes
 
     @staticmethod
     async def decode_input_data():
