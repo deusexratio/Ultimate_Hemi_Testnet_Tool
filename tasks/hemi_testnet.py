@@ -497,7 +497,9 @@ class Testnet_Bridge(Base):
                             # amount_eth: TokenAmount,
                             slippage: float = 5) -> str | None:
         settings = Settings()
-        amount_eth = TokenAmount(random.uniform(settings.autorefill_amount.from_, settings.autorefill_amount.to_))
+        amount_eth = TokenAmount(
+            amount=random.uniform(settings.autorefill_amount.from_, settings.autorefill_amount.to_),
+            decimals=18)
         seth_amount = await Testnet_Bridge.get_price_seth(client=self.client, amount_eth=amount_eth, slippage=slippage)
         failed_text = f'{self.client.account.address} Failed to bridge {amount_eth.Ether} ETH to Sepolia via Testnet Bridge'
         op_client = Client(private_key=self.client.account.key, network=Networks.Optimism)
