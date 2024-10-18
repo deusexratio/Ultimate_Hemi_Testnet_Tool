@@ -108,11 +108,12 @@ async def hourly_check_failed_txs(contract: RawContract | str,
 async def auto_daily_reset_activities():
     while True:
         try:
+            reset_hour = 0
             now_utc_hour = int(datetime.now(timezone.utc).time().hour)
-            logger.info(f'Current UTC hour: {now_utc_hour}')
+            logger.info(f'Current UTC hour: {now_utc_hour}. Will reset activites at {reset_hour} hours.')
             activities = ['depositETH', 'depositERC20',
                           'swaps']  # 'capsule' ,
-            if now_utc_hour == 5:
+            if now_utc_hour == reset_hour:
                 for wallet in get_wallets():
                     update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
                 logger.success(f'Succesfully reset activities at {datetime.now()}')
@@ -218,11 +219,13 @@ async def activity(queue, tasks_num):
 
             # Select wallet from DB to do an activity
             wallet = await queue.get()
-            update_next_action_time(private_key=wallet.private_key, seconds=120) # put a lil bit away from queue
+            if wallet:
+                update_next_action_time(private_key=wallet.private_key, seconds=120) # put a lil bit away from queue
+                logger.info(f'{datetime.now().time().replace(microsecond=0)} : wallet: {wallet}')
             # todo: test (for now it's holding on 120)
-            logger.info(f'{datetime.now().time().replace(microsecond=0)} : wallet: {wallet}')
             if not wallet:
                 await asyncio.sleep(delay)
+                logger.info('no wallet selected')
                 continue
 
             # Pick an action for selected wallet

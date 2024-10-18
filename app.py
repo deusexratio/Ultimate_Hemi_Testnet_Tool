@@ -49,6 +49,7 @@ async def start_script(tasks_num: int = 1):
 
 
 if __name__ == '__main__':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     create_files()
     print('''  Select the action:
 1) Import wallets from the spreadsheet to the DB;

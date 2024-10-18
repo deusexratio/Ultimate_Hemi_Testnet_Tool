@@ -20,7 +20,7 @@ class Wallet:
             self,
             token: types.Contract | None = None,
             address: str | ChecksumAddress | None = None,
-            decimals: int = 18
+            # decimals: int = 18
     ) -> TokenAmount:
         if not address:
             address = self.client.account.address
@@ -30,7 +30,7 @@ class Wallet:
         if not token:
             return TokenAmount(
                 amount=await self.client.w3.eth.get_balance(account=address),
-                decimals=decimals,
+                decimals=self.client.network.decimals,
                 wei=True
             )
 

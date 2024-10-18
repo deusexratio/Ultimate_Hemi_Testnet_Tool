@@ -1,26 +1,28 @@
 from __future__ import annotations
 
 import random
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
-
 
 from eth_typing import HexStr
 from hexbytes import HexBytes
 
 from web3 import Web3, AsyncWeb3
+from web3.contract import AsyncContract
 from web3.middleware import geth_poa_middleware
-from web3.types import TxReceipt, _Hash32, TxParams
+from web3.types import TxReceipt, _Hash32, TxParams, ENS
 from web3.exceptions import TimeExhausted
 from eth_account.datastructures import SignedTransaction, SignedMessage
 from eth_account.messages import encode_defunct
 from eth_account.account import Account
+from uniswap_universal_router_decoder import RouterCodec
 
 
 from .data import types
 from .exceptions import TransactionException
 from .classes import AutoRepr
 from .utils.utils import api_key_required
-from .data.models import TokenAmount, CommonValues, TxArgs, Networks
+from .data.models import TokenAmount, CommonValues, TxArgs, Networks, RawContract
 
 if TYPE_CHECKING:
     from .client import Client
@@ -156,7 +158,7 @@ class Transactions:
         Get the current gas price
         :return: gas price
         """
-        return TokenAmount(amount=await self.client.w3.eth.gas_price, wei=True)
+        return TokenAmount(amount=await self.client.w3.eth.gas_price, wei=True, decimals=self.client.network.decimals)
 
     async def max_priority_fee(self, block: dict | None = None) -> TokenAmount:
         w3 = Web3(provider=Web3.HTTPProvider(endpoint_uri=self.client.network.rpc))
@@ -182,7 +184,7 @@ class Transactions:
         else:
             max_priority_fee_per_gas_lst.sort()
             max_priority_fee_per_gas = max_priority_fee_per_gas_lst[len(max_priority_fee_per_gas_lst) // 2]
-        return TokenAmount(amount=max_priority_fee_per_gas, wei=True)
+        return TokenAmount(amount=max_priority_fee_per_gas, wei=True, decimals=self.client.network.decimals)
 
     async def max_priority_fee_(self) -> TokenAmount:
         """
@@ -192,7 +194,8 @@ class Transactions:
             Wei: the current max priority fee.
 
         """
-        return TokenAmount(amount=await self.client.w3.eth.max_priority_fee, wei=True)
+        return TokenAmount(amount=await self.client.w3.eth.max_priority_fee, wei=True,
+                           decimals=self.client.network.decimals)
 
     async def estimate_gas(self, tx_params: TxParams) -> TokenAmount:
         """
@@ -209,6 +212,7 @@ class Transactions:
             gas = TokenAmount(
                 amount=await self.client.w3.eth.estimate_gas(transaction=tx_params),
                 wei=True,
+                decimals=self.client.network.decimals
             )
             if type(gas) is not TokenAmount:
                 raise AttributeError('gas is not TokenAmount')
@@ -384,7 +388,6 @@ class Transactions:
 
         Returns:
             Tx: the instance of the sent transaction.
-
         """
         spender = Web3.to_checksum_address(spender)
         contract_address, abi = await self.client.contracts.get_contract_attributes(token)
@@ -423,34 +426,121 @@ class Transactions:
         contract = await self.client.contracts.default_token(contract_address=contract_address)
         return await contract.functions.decimals().call()
 
-    async def sign_message(self, abi_types: list, params: list) -> SignedMessage:
+    async def sign_message(self, message: str) -> SignedMessage:
             """
             Sign message
-            types: types of data, for example ["address", "uint256", ...]
-            params: params to sign. len(types) == len(params)
-            private key: customer private key
-            return signed message, containing v, r, s for tests
-            """
-            private_key=self.client.account.key
-            signature = self.client.w3.to_hex(self.client.w3.solidity_keccak(abi_types, params))
-            # signature = Web3.toHex(Web3.soliditySha3(types, params))
-            message = encode_defunct(hexstr=signature)
-            signed_message = self.client.w3.eth.account.sign_message(message, private_key)
-            res = Account.signHash(message.body, private_key)
-            return SignedMessage(
-                v=res.v,
-                r=self.client.w3.to_hex(res.r),
-                s=self.client.w3.to_hex(res.s),
-                messageHash=signed_message.messageHash
-            )
-    # todo: finish this
 
-    # class SignedMessage(NamedTuple):
-    #     messageHash: HexBytes
-    #     r: int
-    #     s: int
-    #     v: int
-    #     signature: HexBytes
+            Args:
+            message: str
+
+            Returns:
+                SignedMessage
+            """
+            # private_key=self.client.account.key
+            # signature = self.client.w3.to_hex(self.client.w3.solidity_keccak(abi_types, params))
+            # # signature = Web3.toHex(Web3.soliditySha3(types, params))
+            # message = encode_defunct(hexstr=signature)
+            # signed_message = self.client.w3.eth.account.sign_message(message, private_key)
+            # res = Account.signHash(message.body, private_key)
+            # return SignedMessage(
+            #     v=res.v,
+            #     r=self.client.w3.to_hex(res.r),
+            #     s=self.client.w3.to_hex(res.s),
+            #     messageHash=signed_message.messageHash
+            # )
+
+            msghash = encode_defunct(text=message)
+            # return Account.sign_message(msghash, self.client.account.key) - this was Ok I guess
+            return self.client.w3.eth.account.sign_message(signable_message=msghash,
+                                                           private_key=self.client.account.key)
+
+    async def permit2_allowance(self, permit2_address: types.Address,
+                                    router_address: types.Address,
+                                    token_address: types.Address,
+                                    permit2_abi: list) -> tuple[Any, Any, Any]:
+        """
+        Fetch amount of allowance, expiration timestamp of allowance and permit2 message nonce
+        for specified permit2, router and token addresses
+
+        Args:
+            permit2_address:
+            router_address:
+            token_address:
+            permit2_abi:
+
+        Returns:
+            p2_amount, p2_expiration, p2_nonce
+        """
+        permit2_contract = self.client.w3.eth.contract(address=permit2_address, abi=permit2_abi)
+        p2_amount, p2_expiration, p2_nonce = await permit2_contract.functions.allowance(
+            self.client.account.address,
+            token_address,
+            router_address
+        ).call()
+        return p2_amount, p2_expiration, p2_nonce
+
+    async def get_permit2_data(self, permit2: types.Contract,
+                                    router: types.Contract,
+                                    token: types.Contract,
+                                    permit2_abi: list) -> tuple[dict, Any] | None:
+        """
+        Gets permit_data, signed_message via RouterCodec
+
+        Args:
+            permit2:
+            router:
+            token:
+            permit2_abi:
+
+        Returns:
+            permit_data, signed_message
+        """
+        if isinstance(permit2, str):
+            permit2_address = Web3.to_checksum_address(permit2)
+        elif isinstance(permit2, (RawContract, AsyncContract)):
+            permit2_address = permit2.address
+        else:
+            permit2_address = permit2
+
+        if isinstance(router, str):
+            router_address = Web3.to_checksum_address(router)
+        elif isinstance(router, (RawContract, AsyncContract)):
+            router_address = router.address
+        else:
+            router_address = router
+
+        if isinstance(token, str):
+            token_address = Web3.to_checksum_address(token)
+        elif isinstance(token, (RawContract, AsyncContract)):
+            token_address = token.address
+        else:
+            token_address = token
+
+        p2_amount, p2_expiration, p2_nonce = await self.permit2_allowance(permit2_address=permit2_address,
+                                                                            router_address=router_address,
+                                                                            token_address=token_address,
+                                                                            permit2_abi=permit2_abi)
+        if p2_amount > 0 and p2_expiration > int(datetime.now().timestamp()):
+            permit_data = {}
+            signed_message = ''
+            return permit_data, signed_message
+            # todo: убрать костыль?
+
+        codec = RouterCodec()
+        allowance_amount = 2 ** 160 - 1  # max/infinite
+        permit_data, signable_message = codec.create_permit2_signable_message(
+            token_address,
+            allowance_amount,
+            codec.get_default_expiration(),  # 30 days
+            p2_nonce,
+            router_address,
+            codec.get_default_deadline(),  # 180 seconds
+            self.client.network.chain_id,
+        )
+        signed_message = self.client.w3.eth.account.sign_message(signable_message=signable_message,
+                                                           private_key=self.client.account.key)
+        return permit_data, signed_message
+
 
     @staticmethod
     async def decode_input_data():

@@ -167,16 +167,16 @@ class Contracts(Singleton):
         abi=read_json(path=(ABIS_DIR, 'capsule.json'))
     )
 
-    Hemi_Swap = RawContract(
-        title='Swap',
+    Hemi_Swap_Router = RawContract(
+        title='UniversalRouter',
         address='0xA18019E62f266C2E17e33398448e4105324e0d0F',
         abi=read_json(path=(ABIS_DIR, 'swap.json'))
     )
 
-    Swap_DAI_approval = RawContract(
+    Swap_DAI_permit = RawContract(
         title='Swap',
         address='0xB952578f3520EE8Ea45b7914994dcf4702cEe578',
-        abi=read_json(path=(ABIS_DIR, 'swap.json'))
+        abi=read_json(path=(ABIS_DIR, 'permit2_abi.json'))
     )
 
     Gnosis_Safe = RawContract(

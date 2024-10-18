@@ -41,7 +41,7 @@ class TokenAmount:
     Ether: Decimal
     decimals: int
 
-    def __init__(self, amount: int | float | str | Decimal, decimals: int = 18, wei: bool = False) -> None:
+    def __init__(self, amount: int | float | str | Decimal, decimals: int, wei: bool = False) -> None:
         if wei:
             self.Wei: int = int(amount)
             self.Ether: Decimal = Decimal(str(amount)) / 10 ** decimals

@@ -8,7 +8,7 @@ from isapi.samples.redirector import proxy
 from web3.types import TxParams
 from fake_useragent import UserAgent
 from eth_abi import encode
-
+from uniswap_universal_router_decoder import RouterCodec, FunctionRecipient
 
 from libs.eth_async.data.models import TokenAmount, RawContract, TxArgs, Network, Networks
 from libs.eth_async.exceptions import HTTPException
@@ -63,7 +63,8 @@ class Hemi(Base):
             approve_amount = random.randint(100000, 1000000)
             approved = await self.approve_interface(token_address=token.address,
                                                         spender=Contracts.Hemi_Capsule_Manager.address,
-                                                        amount=TokenAmount(amount=approve_amount))
+                                                        amount=TokenAmount(amount=approve_amount, wei=False,
+                                                                           decimals=token.decimals))
             if approved:
                     print(f'{self.client.account.address} : approved {token.title} for capsule manager')
                     await asyncio.sleep(random.randint(10, 15))
@@ -126,7 +127,7 @@ class Hemi(Base):
             return f'{failed_text}!' # Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
 
     async def swap_dai(self, token: RawContract = Contracts.Hemi_DAI, route: str | None = None,
-                    amount_eth: int | None = None, amount_token: int | None = None):
+                    amount_eth: int | None = None, amount_token: int | None = None, slippage: float = 30):
         if not route:
             route = random.choices(
                 ('eth_to_token', 'token_to_eth'),
@@ -138,7 +139,7 @@ class Hemi(Base):
             amount_token = Base.get_token_amount_for_swap(token=token)
         token_name = token.title
         # token = await self.client.contracts.default_token(contract_address=token.address)
-        contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Swap)
+        contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Swap_Router)
         if route == 'eth_to_token':
             commands = '0x0b00'
             value = amount_eth.Wei
@@ -163,7 +164,9 @@ class Hemi(Base):
             )
             bytes_path = encode(
                 ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
-                [1, amount_eth.Wei, int(amount_out.Wei * 0.9), self.client.w3.to_bytes(hexstr=corrected_path), 0]
+                [1, amount_eth.Wei, int(amount_out.Wei * ((100-slippage)/100)),
+                                                                # todo: check price via UI is x10 bigger
+                 self.client.w3.to_bytes(hexstr=corrected_path), 0]
             )
 
             inputs = [bytes_amount, bytes_path]
@@ -176,17 +179,16 @@ class Hemi(Base):
             failed_text = (f'{self.client.account.address} Failed to swap {amount_token.Ether} {token_name} '
                            f'for {amount_out.Ether} ETH via Swap')
             if wallet_amount != 0:
-                approve_amount = random.randint(100000, 1000000)
+                allowance_amount = 2 ** 160 - 1  # max/infinite
                 approved = await self.approve_interface(token_address=token.address,
-                                             spender=Contracts.Swap_DAI_approval.address,
-                                             amount=TokenAmount(amount=approve_amount))
+                                                        spender=Contracts.Swap_DAI_permit.address,
+                                                        amount=TokenAmount(amount=allowance_amount, wei=False,
+                                                                           decimals=token.decimals))
                 if approved:
                     await asyncio.sleep(random.randint(10, 15))
                     print(f'{self.client.account.address} : approved {token_name}')
                 else:
                     return f'{failed_text} | can not approve'
-
-            # todo: add sign message approval
 
             value = 0
             commands = '0x000c'
@@ -205,11 +207,11 @@ class Hemi(Base):
 
             bytes_path = encode(
                 ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
-                [2,  amount_token.Wei, int(amount_out.Wei * 0.5), self.client.w3.to_bytes(hexstr=corrected_path), 1]
+                [2,  amount_token.Wei, int(amount_out.Wei * 0.9), self.client.w3.to_bytes(hexstr=corrected_path), 1]
             )
             bytes_empty = encode(
                 ['uint256', 'uint256'],
-                [1, int(amount_out.Wei * 0.5)]
+                [1, int(amount_out.Wei * 0.9)]
             )
             inputs = [bytes_path, bytes_empty]
         else:
@@ -218,7 +220,7 @@ class Hemi(Base):
         args = TxArgs(
             commands=commands,
             inputs=inputs,
-            deadline=int(datetime.now().timestamp()) + 5 * 60
+            deadline=int(datetime.now().timestamp()) + 3 * 60
         )
         tx_params = TxParams(
             to=contract.address,
@@ -228,46 +230,98 @@ class Hemi(Base):
 
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
         if tx is None:
-            print('tx in swap was None')
-            ################################# TESTING #####################################
-            if route == 'token_to_eth':
-                value = 0
-                commands = '0x000c'
+            print(f'{self.client.account.address} tx in swap was None. Retrying with permit2 message')
+            print(tx_params)
+            try:
+                if route == 'token_to_eth':
+                    permit_data, signed_message = await self.client.transactions.get_permit2_data(
+                        permit2=Contracts.Swap_DAI_permit, router=Contracts.Hemi_Swap_Router, token=token,
+                        permit2_abi=Contracts.Swap_DAI_permit.abi)
+                    if not permit_data and not signed_message:
+                        return f'{failed_text} | Failed just swapping and permit2 allowance > 0 now'
+                    codec = RouterCodec()
+                    path = [token.address, 10000, Contracts.Hemi_WETH.address]
+                    print(permit_data, signed_message)
+                    expiration = permit_data['details']['expiration']
+                    sigDeadline = permit_data['sigDeadline']
+                    signature = signed_message.signature
+                    signature = signature.hex()
+                    encoded_path = codec.encode.v3_path(v3_fn_name='V3_SWAP_EXACT_IN', path_seq=path)
+                    encoded_path = encoded_path.hex()
+                    # encoded_input = (
+                    #     codec
+                    #     .encode
+                    #     .chain()
+                    #     .permit2_permit(permit_data, signed_message)
+                    #     .v3_swap_exact_out(
+                    #         function_recipient=FunctionRecipient.SENDER,
+                    #         # amount_in=amount_token.Wei,
+                    #         # amount_out_min=int(amount_eth.Wei * 0.99),
+                    #         amount_in_max=amount_token.Wei,
+                    #         amount_out=int(amount_eth.Wei * 0.99),
+                    #         path=path,
+                    #         payer_is_sender=True,
+                    #     )
+                    #     .build(codec.get_default_deadline())
+                    # )
+                    ############################### barbaric input ##########################################
+                    deadline = self.client.w3.to_bytes(int(datetime.now().timestamp()) + 3 * 60)
+                    encoded_input = bytes.fromhex(
+                        '3593564c'
+                        f'{"60".zfill(64)}'
+                        f'{"a0".zfill(64)}'
+                        f'{str(deadline.hex()).zfill(64)}'
+                        f'{"3".zfill(64)}'
+                        f'0a000c0000000000000000000000000000000000000000000000000000000000'
+                        f'{"3".zfill(64)}'
+                        f'{"60".zfill(64)}'
+                        f'{"1e0".zfill(64)}'
+                        f'{"300".zfill(64)}'
+                        f'{"160".zfill(64)}'
+                        f'{token.address[2:].zfill(64)}'
+                        f'{"ffffffffffffffffffffffffffffffffffffffff".zfill(64)}'
+                        f'{str(hex(expiration))[2:].zfill(64)}'
+                        f'{"".zfill(64)}'
+                        f'{Contracts.Hemi_Swap_Router.address[2:].zfill(64)}'
+                        f'{str(hex(sigDeadline))[2:].zfill(64)}'
+                        f'{"e0".zfill(64)}'
+                        f'{"41".zfill(64)}'
+                        f'{signature[2:]}00000000000000000000000000000000000000000000000000000000000000'
+                        f'{"100".zfill(64)}'
+                        f'{"2".zfill(64)}'
+                        f'{str(hex(amount_token.Wei))[2:].zfill(64)}'
+                        f'{str(hex(int(amount_out.Wei*((100-slippage)/100))))[2:].zfill(64)}'
+                        f'{"a0".zfill(64)}'
+                        f'{"1".zfill(64)}'
+                        f'{"2b".zfill(64)}'
+                        f'{encoded_path}000000000000000000000000000000000000000000'
+                        f'{"40".zfill(64)}'
+                        f'{"1".zfill(64)}'
+                        f'{str(hex(int(amount_out.Wei*0.99)))[2:].zfill(64)}'
+                    )
+                    decoded_input = self.client.w3.to_hex(encoded_input)
+                    ############################### barbaric input ##########################################
+                    # print(encoded_input)
+                    # print(decoded_input)
+                    # return
 
-                path = encode(
-                    ['address', 'uint24', 'address'],
-                    [token.address, 3000, Contracts.Hemi_WETH.address]
-                )
-                corrected_path = '0x' + path.hex()[24:]
-                corrected_path = corrected_path.replace(
-                    "0000000000000000000000000000000000000000000000000000000000000bb80000000000000000000000000",
-                    "000bb80"
-                    # 0027100
-                    # 000bb80
-                )
-                bytes_path = encode(
-                    ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
-                    [2, amount_token.Wei, int(amount_out.Wei * 0.5), self.client.w3.to_bytes(hexstr=corrected_path), 1]
-                )
-                bytes_empty = encode(
-                    ['uint256', 'uint256'],
-                    [1, int(amount_out.Wei * 0.5)]
-                )
-                inputs = [bytes_path, bytes_empty]
-                args = TxArgs(
-                    commands=commands,
-                    inputs=inputs,
-                    deadline=int(datetime.now().timestamp()) + 5 * 60
-                )
-                tx_params = TxParams(
-                    to=contract.address,
-                    data=contract.encodeABI('execute', args=args.tuple()),
-                    value=value,
-                )
-                tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
-                if tx is None:
-                    print(f"{failed_text} | FAILED SECOND TYPE OF SWAP")
-            ################################# TESTING #####################################
+                    tx_params = TxParams(
+                        to=contract.address,
+                        data=decoded_input,
+                        value=value,
+                    )
+
+                    tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                    if tx is None:
+                        # print(tx_params) # todo: debug, delete this
+                        return failed_text
+                    receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
+                    # check_tx_error = await Base.check_tx(tx_hash=tx.hash, network=Networks.Hemi_Testnet)
+                    if receipt:
+                        return f'{amount_token.Ether} {token_name} was swapped to {amount_eth.Ether} Eth : {tx.hash.hex()}'
+                    return failed_text
+            except AttributeError as e:
+                return f'{e}'
             return failed_text
         elif type(tx) is str:
             return f'{failed_text} | {tx}'
@@ -304,6 +358,7 @@ class Hemi(Base):
         }
         try:
             if route == 'token_to_eth':
+                amount_token = TokenAmount(amount=amount_token.Ether, wei=False, decimals=token.decimals)
                 data = ('{"tokenInChainId":743111,'
                         f'"tokenIn":"{token.address}",'
                         f'"tokenOutChainId":743111,"tokenOut":"ETH","amount":"{amount_token.Wei}",'
@@ -311,6 +366,11 @@ class Hemi(Base):
                         '[{"protocols":["V2","V3","MIXED"],"enableUniversalRouter":true,"routingType":"CLASSIC",'
                         f'"recipient":"{client.account.address}",'
                         '"enableFeeOnTransferFeeFetching":true}]}')
+                response = await async_post(
+                    url='https://hgc8sm30t0.execute-api.eu-central-1.amazonaws.com/production/v2/quote',
+                    headers=headers, data=data, proxy=client.proxy)
+                price = response['allQuotes'][0]['quote']['quote']
+                return TokenAmount(amount=int(price), wei=True, decimals=token.decimals)
             elif route == 'eth_to_token':
                 data = ('{"tokenInChainId":743111,'
                         '"tokenIn":"ETH",'
@@ -319,13 +379,15 @@ class Hemi(Base):
                         '[{"protocols":["V2","V3","MIXED"],"enableUniversalRouter":true,"routingType":"CLASSIC",'
                         f'"recipient":"{client.account.address}",'
                         '"enableFeeOnTransferFeeFetching":true}]}')
+                response = await async_post(
+                    url='https://hgc8sm30t0.execute-api.eu-central-1.amazonaws.com/production/v2/quote',
+                    headers=headers, data=data, proxy=client.proxy)
+                price = response['allQuotes'][0]['quote']['quote']
+                return TokenAmount(amount=int(price), wei=True, decimals=18)
         except ValueError as e:
             print(f'{e} wrong route given to get_price_to_swap')
 
-        response = await async_post(url='https://hgc8sm30t0.execute-api.eu-central-1.amazonaws.com/production/v2/quote',
-                                    headers=headers, data=data, proxy=client.proxy)
-        price = response['allQuotes'][0]['quote']['quoteGasAdjusted']
-        return TokenAmount(amount=int(price), wei=True)
+
 
 
     async def create_safe(self):

@@ -46,7 +46,7 @@ class Base:
         if balance.Wei <= 0:
             return False
 
-        if not amount or amount.Wei > balance.Wei:
+        if not amount: # or amount.Wei > balance.Wei: dunno why this?
             amount = balance
 
         approved = await self.client.transactions.approved_amount(
@@ -101,7 +101,7 @@ class Base:
                 from_=settings.eth_amount_for_swap.from_,
                 to_=settings.eth_amount_for_swap.to_,
                 step=0.0000001
-            )
+            ), decimals=18
         )
 
     @staticmethod
@@ -123,7 +123,7 @@ class Base:
             amount=randfloat(
                 from_=settings.eth_amount_for_bridge.from_,
                 to_=settings.eth_amount_for_bridge.to_,
-                step=0.0000001)
+                step=0.0000001), decimals=18
         )
 
     @staticmethod

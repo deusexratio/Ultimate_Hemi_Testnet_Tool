@@ -12,3 +12,8 @@ Plans for future:
 - tune up logs
 - dig into failing to swap dai to eth (guess will need to give approve by signing message)
 - also I think creating safe doesn't give points (despite raw input data seeming to be correct), maybe will investigate later
+
+v.1.0.3
+- TokenAmount class now requires to always input decimals (previously default was 18)
+- added permit2 to swaps but still doesn't work properly
+- added uniswap codec so you should recheck and install requirements
