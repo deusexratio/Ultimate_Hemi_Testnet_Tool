@@ -135,7 +135,7 @@ async def auto_reset_capsule():
 def manual_daily_reset_activities() -> bool:
     try:
         activities = ['depositETH', 'depositERC20',
-                      'swaps']  # 'capsule' ,
+                      'swaps', 'capsule']
         for wallet in get_wallets():
             update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
         logger.info(f'Succesfully reset all activities except Safe at {datetime.now()}')
