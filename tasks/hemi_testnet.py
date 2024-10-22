@@ -116,6 +116,8 @@ class Hemi(Base):
         # else:
         '''
         # API doesn't work now so no checking tx
+        if isinstance(tx, str):
+            return failed_text
         receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
         if receipt:
             return f'{self.client.account.address} : {amount.Ether} {token.title} Created capsule: {tx.hash.hex()}'
@@ -231,7 +233,7 @@ class Hemi(Base):
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
         if tx is None:
             print(f'{self.client.account.address} tx in swap was None. Retrying with permit2 message')
-            print(tx_params)
+            # print(tx_params)
             try:
                 if route == 'token_to_eth':
                     permit_data, signed_message = await self.client.transactions.get_permit2_data(

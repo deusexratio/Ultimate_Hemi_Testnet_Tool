@@ -27,7 +27,6 @@ class Import:
                     private_key=row[0],
                     proxy=row[1],
                     name=row[2],
-                    # okx_address=row[3]
                 ))
         return wallets
 
@@ -44,12 +43,10 @@ class Import:
             wallet_instance = get_wallet(private_key=wallet.private_key)
             if wallet_instance and (
                     wallet_instance.proxy != wallet.proxy or
-                    wallet_instance.name != wallet.name  # or
-                    # wallet_instance.okx_address != wallet.okx_address
+                    wallet_instance.name != wallet.name
             ):
                 wallet_instance.proxy = wallet.proxy
                 wallet_instance.name = wallet.name
-                # wallet_instance.okx_address = wallet.okx_address
                 db.commit()
                 edited.append(wallet_instance)
 
@@ -61,9 +58,6 @@ class Import:
                     proxy=wallet.proxy,
                     name=wallet.name,
                 )
-                # print(wallet.private_key)
-                # print(wallet_instance.proxy)
-                # print(wallet_instance.address)
                 db.insert(wallet_instance)
                 imported.append(wallet_instance)
 
