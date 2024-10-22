@@ -286,7 +286,7 @@ async def activity(queue, tasks_num):
             if status is None:
                 print(f'{action} : returned None')
 
-            if 'Failed' not in status:
+            elif 'Failed' not in status:
                 update_next_action_time(
                     private_key=wallet.private_key,
                     seconds=random.randint(settings.activity_actions_delay.from_,
