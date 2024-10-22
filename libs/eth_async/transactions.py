@@ -436,21 +436,8 @@ class Transactions:
             Returns:
                 SignedMessage
             """
-            # private_key=self.client.account.key
-            # signature = self.client.w3.to_hex(self.client.w3.solidity_keccak(abi_types, params))
-            # # signature = Web3.toHex(Web3.soliditySha3(types, params))
-            # message = encode_defunct(hexstr=signature)
-            # signed_message = self.client.w3.eth.account.sign_message(message, private_key)
-            # res = Account.signHash(message.body, private_key)
-            # return SignedMessage(
-            #     v=res.v,
-            #     r=self.client.w3.to_hex(res.r),
-            #     s=self.client.w3.to_hex(res.s),
-            #     messageHash=signed_message.messageHash
-            # )
 
             msghash = encode_defunct(text=message)
-            # return Account.sign_message(msghash, self.client.account.key) - this was Ok I guess
             return self.client.w3.eth.account.sign_message(signable_message=msghash,
                                                            private_key=self.client.account.key)
 

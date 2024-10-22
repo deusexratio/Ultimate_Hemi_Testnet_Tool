@@ -243,7 +243,7 @@ class Hemi(Base):
                         return f'{failed_text} | Failed just swapping and permit2 allowance > 0 now'
                     codec = RouterCodec()
                     path = [token.address, 10000, Contracts.Hemi_WETH.address]
-                    print(permit_data, signed_message)
+                    # print(permit_data, signed_message)
                     expiration = permit_data['details']['expiration']
                     sigDeadline = permit_data['sigDeadline']
                     signature = signed_message.signature
