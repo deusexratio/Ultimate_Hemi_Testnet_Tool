@@ -17,3 +17,10 @@ v.1.0.3
 - TokenAmount class now requires to always input decimals (previously default was 18)
 - added permit2 to swaps but still doesn't work properly
 - added uniswap codec so you should recheck and install requirements
+
+v1.0.4
+- minor fixes
+
+v1.0.5
+- a lot of minor fixes
+- added cycle to try out 4 of possible pool fees for swapping, but still I guess it doesn't make a big deal
