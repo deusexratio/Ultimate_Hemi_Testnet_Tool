@@ -109,8 +109,8 @@ async def async_post(url: str,
                     # params=aio_params,
                     **kwargs
                 )
-
             status_code = response.status_code
+            response = response.json()
         except (JSONDecodeError, RequestsError):
             # retry
             # todo: убрать костыль
@@ -134,7 +134,7 @@ async def async_post(url: str,
                 )
             status_code = response.status_code
             response = response.json()
-  
+
         # print(status_code, response)
         if status_code <= 201:
             return response

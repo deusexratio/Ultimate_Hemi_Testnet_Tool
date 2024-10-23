@@ -175,6 +175,7 @@ class Hemi(Base):
                                         data=contract.encodeABI('execute', args=args.tuple()),
                                         value=value)
                     tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                    await asyncio.sleep(5)
                     if tx:
                         print(f'{pool_fee} pool fee selected for {route} {token_name}')
                         break # trying to estimate gas until right pool fee is found
@@ -209,9 +210,8 @@ class Hemi(Base):
                     )
                     decoded_path = await Hemi.swap_route(route=route, token=token, pool_fee=pool_fee)
                     bytes_path = encode(
-                        ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
-                        [2, amount_token.Wei, int(amount_out.Wei * 0.9), self.client.w3.to_bytes(hexstr=decoded_path),
-                         1]
+                    ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
+                    [2, amount_token.Wei, int(amount_out.Wei * 0.9), self.client.w3.to_bytes(hexstr=decoded_path), 1]
                     )
                     inputs = [bytes_path, bytes_empty]
                     args = TxArgs(commands=commands,
