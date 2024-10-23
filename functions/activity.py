@@ -249,7 +249,7 @@ async def activity(queue, tasks_num):
                 if i == 5:
                     continue # after 5 tries try to do another wallet
 
-            hemi_action_list = [controller.hemi.create_capsule, controller.hemi.create_safe, controller.hemi.swap_dai]
+            hemi_action_list = [controller.hemi.create_capsule, controller.hemi.create_safe, controller.hemi.swap]
             if action in hemi_action_list:
                 i = 0
                 while float(gas_price_hemi.Wei) > Web3.to_wei(settings.maximum_gas_price_hemi, 'gwei') and i < 5:

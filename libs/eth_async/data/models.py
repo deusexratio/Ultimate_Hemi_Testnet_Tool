@@ -238,7 +238,7 @@ class Networks:
     # Testnets
     Sepolia = Network(
         name='sepolia',
-        rpc='https://sepolia.infura.io/v3/25641334b82b45889bcc941d4df6c75a',
+        rpc='https://1rpc.io/sepolia',
         chain_id=11155111,
         tx_type=2,
         coin_symbol='ETH',

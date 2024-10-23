@@ -23,6 +23,7 @@ from .exceptions import TransactionException
 from .classes import AutoRepr
 from .utils.utils import api_key_required
 from .data.models import TokenAmount, CommonValues, TxArgs, Networks, RawContract
+from .utils.web_requests import async_post
 
 if TYPE_CHECKING:
     from .client import Client
@@ -161,29 +162,42 @@ class Transactions:
         return TokenAmount(amount=await self.client.w3.eth.gas_price, wei=True, decimals=self.client.network.decimals)
 
     async def max_priority_fee(self, block: dict | None = None) -> TokenAmount:
-        w3 = Web3(provider=Web3.HTTPProvider(endpoint_uri=self.client.network.rpc))
-        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # old method:
+        # w3 = Web3(provider=Web3.HTTPProvider(endpoint_uri=self.client.network.rpc))
+        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        #
+        # if not block:
+        #     block = w3.eth.get_block('latest')
+        #
+        # block_number = block['number']
+        # latest_block_transaction_count = w3.eth.get_block_transaction_count(block_number)
+        # max_priority_fee_per_gas_lst = []
+        # for i in range(latest_block_transaction_count):
+        #     try:
+        #         transaction = w3.eth.get_transaction_by_block(block_number, i)
+        #         if 'maxPriorityFeePerGas' in transaction:
+        #             max_priority_fee_per_gas_lst.append(transaction['maxPriorityFeePerGas'])
+        #     except Exception:
+        #         continue
+        #
+        # if not max_priority_fee_per_gas_lst:
+        #     # max_priority_fee_per_gas = w3.eth.max_priority_fee
+        #     max_priority_fee_per_gas = 0
+        # else:
+        #     max_priority_fee_per_gas_lst.sort()
+        #     max_priority_fee_per_gas = max_priority_fee_per_gas_lst[len(max_priority_fee_per_gas_lst) // 2]
 
-        if not block:
-            block = w3.eth.get_block('latest')
+        # new method
+        query = [
+            {
+                "id": random.randint(1,99),
+                "jsonrpc": "2.0",
+                "method": "eth_maxPriorityFeePerGas"
+            }
+        ]
+        response = await async_post(url=self.client.network.rpc, data=query)
+        max_priority_fee_per_gas = int(response[0]['result'], 16)
 
-        block_number = block['number']
-        latest_block_transaction_count = w3.eth.get_block_transaction_count(block_number)
-        max_priority_fee_per_gas_lst = []
-        for i in range(latest_block_transaction_count):
-            try:
-                transaction = w3.eth.get_transaction_by_block(block_number, i)
-                if 'maxPriorityFeePerGas' in transaction:
-                    max_priority_fee_per_gas_lst.append(transaction['maxPriorityFeePerGas'])
-            except Exception:
-                continue
-
-        if not max_priority_fee_per_gas_lst:
-            # max_priority_fee_per_gas = w3.eth.max_priority_fee
-            max_priority_fee_per_gas = 0
-        else:
-            max_priority_fee_per_gas_lst.sort()
-            max_priority_fee_per_gas = max_priority_fee_per_gas_lst[len(max_priority_fee_per_gas_lst) // 2]
         return TokenAmount(amount=max_priority_fee_per_gas, wei=True, decimals=self.client.network.decimals)
 
     async def max_priority_fee_(self) -> TokenAmount:
@@ -268,12 +282,15 @@ class Transactions:
                         tx_params['gas'] = (await self.estimate_gas(tx_params=tx_params)).Wei
 
             except KeyError as e:
-                print(tx_params)
-                print(f'{e}: got wrong response (need "gas" key in tx_params) probably failed to count gas')
+                return None
+                # print(tx_params)
+                # print(f'{e}: got wrong response (need "gas" key in tx_params) probably failed to count gas')
 
             return tx_params
         except AttributeError as e:
-            print(f'{e}:got wrong response (need "gas" key in tx_params) probably failed to count gas')
+            return None
+            # print(f'{self.client.account.address} got wrong response (need "gas" key in tx_params) | '
+            #       f'probably failed to count gas')
             # print(tx_params)
 
 
@@ -511,7 +528,7 @@ class Transactions:
             permit_data = {}
             signed_message = ''
             return permit_data, signed_message
-            # todo: убрать костыль?
+            # todo: убрать костыль? возвращает пустое если уже был дан пермит в блокчейне
 
         codec = RouterCodec()
         allowance_amount = 2 ** 160 - 1  # max/infinite

@@ -25,13 +25,6 @@ class FromTo:
     to_: int | float
 
 
-# class OkxModel:
-#     required_minimum_balance: float
-#     withdraw_amount: FromTo
-#     delay_between_withdrawals: FromTo
-#     credentials: OKXCredentials
-
-
 class Settings(Singleton, AutoRepr):
     def __init__(self):
         json_data = read_json(path=SETTINGS_FILE)
@@ -65,8 +58,6 @@ class Settings(Singleton, AutoRepr):
         # self.stable_faucet_amount: FromTo = FromTo(
         #     from_=json_data['stable_faucet_amount']['from'], to_=json_data['stable_faucet_amount']['to']
         # )
-
-
 
 
 class Contracts(Singleton):
