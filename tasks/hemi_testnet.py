@@ -6,10 +6,12 @@ from datetime import datetime
 from web3.types import TxParams
 from fake_useragent import UserAgent
 from eth_abi import encode
+from eth_abi.packed import encode_packed
 from uniswap_universal_router_decoder import RouterCodec, FunctionRecipient
 
 from libs.eth_async.data.models import TokenAmount, RawContract, TxArgs, Network, Networks
 from libs.eth_async.exceptions import HTTPException
+from libs.eth_async.transactions import Tx
 from libs.eth_async.utils.web_requests import async_post
 from libs.eth_async.client import Client
 from data.models import Contracts, Settings
@@ -90,7 +92,7 @@ class Hemi(Base):
         tx_params = TxParams(
             to=contract.address,
             data=contract.encodeABI('shipPackage', args=args.tuple()),
-            value=int(0.001 * 10 ** 18)
+            value=int(0.001 * 10 ** 18),
         )
 
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
@@ -125,7 +127,7 @@ class Hemi(Base):
 
 
     async def swap(self, token: RawContract = None, route: str | None = None,
-                   amount_eth: int | None = None, amount_token: int | None = None, slippage: float = 30):
+                   amount_eth: int | None = None, amount_token: int | None = None, slippage: float = 15):
         if not token:
             token = random.choices(
                 (Contracts.Hemi_DAI, Contracts.Hemi_USDTe, Contracts.Hemi_USDCe),
@@ -164,8 +166,7 @@ class Hemi(Base):
                     decoded_path = await Hemi.swap_route(route=route, token=token, pool_fee=pool_fee)
                     bytes_path = encode(
                         ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
-                        [2, amount_token.Wei, int(amount_out.Wei * 0.9), self.client.w3.to_bytes(hexstr=decoded_path),
-                         1]
+                    [1, amount_eth.Wei, int(amount_out.Wei * 0.8), self.client.w3.to_bytes(hexstr=decoded_path), 0]
                     )
                     inputs = [bytes_amount, bytes_path]
                     args = TxArgs(commands=commands,
@@ -175,8 +176,9 @@ class Hemi(Base):
                                         data=contract.encodeABI('execute', args=args.tuple()),
                                         value=value)
                     tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                    # print(tx_params)
                     await asyncio.sleep(5)
-                    if tx:
+                    if isinstance(tx, Tx):
                         print(f'{pool_fee} pool fee selected for {route} {token_name}')
                         break # trying to estimate gas until right pool fee is found
                 except AttributeError as e:
@@ -221,8 +223,9 @@ class Hemi(Base):
                                         data=contract.encodeABI('execute', args=args.tuple()),
                                         value=value)
                     tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                    # print(tx_params)
                     await asyncio.sleep(5)
-                    if tx:
+                    if isinstance(tx, Tx):
                         print(f'{pool_fee} pool fee selected for {route} {token_name}')
                         break # trying to estimate gas until right pool fee is found
                 except AttributeError as e:
@@ -241,8 +244,13 @@ class Hemi(Base):
                 sigDeadline = permit_data['sigDeadline']
                 signature = signed_message.signature
                 signature = signature.hex()
+                amount_out = await Hemi.get_price_to_swap(self.client, route=route,
+                                                          token=token, amount_token=amount_token)
                 for pool_fee in pool_fee_list:
                     decoded_path = await Hemi.swap_route(route=route, token=token, pool_fee=pool_fee)
+                    # v3_calldata = encode(['address', 'uint256', 'uint256', 'bytes', 'bool'],
+                    #                      [to, amount, slippage, path, from_eoa])
+                    #
                     # encoded_input = (
                     #     codec
                     #     .encode
@@ -292,7 +300,7 @@ class Hemi(Base):
                         f'{decoded_path}000000000000000000000000000000000000000000'
                         f'{"40".zfill(64)}'
                         f'{"1".zfill(64)}'
-                        f'{str(hex(int(amount_out.Wei * 0.99)))[2:].zfill(64)}'
+                        f'{str(hex(int(amount_out.Wei * ((100 - slippage) / 100))))[2:].zfill(64)}'
                     )
                     decoded_input = self.client.w3.to_hex(encoded_input)
                     ############################### barbaric input ##########################################
@@ -302,15 +310,19 @@ class Hemi(Base):
                         value=value,
                     )
                     tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
-                    if tx:
+                    # print(tx_params)
+                    await asyncio.sleep(5)
+                    if isinstance(tx, Tx):
                         print(f'{pool_fee} pool fee selected for {route} {token_name}')
                         break
         else:
             return 'Incorrect route for swap'
         # API doesn't work now so no checking tx
         receipt = None
-        if tx:
+        if isinstance(tx, Tx):
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
+        else:
+            print(route, tx_params)
         # check_tx_error = await Base.check_tx(tx_hash=tx.hash, network=Networks.Hemi_Testnet)
         if receipt:
             if route == 'eth_to_token':
@@ -425,7 +437,8 @@ class Hemi(Base):
             return failed_text
         if type(tx) is str:
             return f'{failed_text} | {tx}'
-        receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
+        if isinstance(tx, Tx):
+            receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
         # check_tx_error = await Base.check_tx(tx_hash=tx.hash, network=Networks.Hemi_Testnet)
         if receipt:
             return f'Created safe for {self.client.account.address} : {tx.hash.hex()}'

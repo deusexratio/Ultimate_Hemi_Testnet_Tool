@@ -12,7 +12,7 @@ def create_files():
     touch(path=config.FILES_DIR)
     touch(path=config.LOG_FILE, file=True)
     touch(path=config.ERRORS_FILE, file=True)
-    touch(path=config.ETHERSCAN_API_KEY, file=True)
+
 
     if not os.path.exists(config.IMPORT_FILE):
         with open(config.IMPORT_FILE, 'w') as f:
@@ -21,8 +21,6 @@ def create_files():
 
     try:
         current_settings: dict | None = read_json(path=config.SETTINGS_FILE)
-        with open(config.ETHERSCAN_API_KEY) as f:
-            etherscan_api_key = f.read()
     except Exception:
         current_settings = {}
 
@@ -42,6 +40,5 @@ def create_files():
         'token_amount_for_capsule': {'from': 10, 'to': 50},
     }
     write_json(path=config.SETTINGS_FILE, obj=update_dict(modifiable=current_settings, template=settings), indent=2)
-
 
 create_files()

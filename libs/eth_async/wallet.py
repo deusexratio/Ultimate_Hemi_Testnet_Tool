@@ -26,13 +26,20 @@ class Wallet:
             address = self.client.account.address
 
         address = Web3.to_checksum_address(address)
-
-        if not token:
+        try:
+            if not token:
+                return TokenAmount(
+                amount=await self.client.w3.eth.get_balance(account=address),
+                decimals=self.client.network.decimals,
+                wei=True
+                )
+        except TimeoutError:
             return TokenAmount(
                 amount=await self.client.w3.eth.get_balance(account=address),
                 decimals=self.client.network.decimals,
                 wei=True
             )
+        # retry todo: убрать костыль
 
         token_address = token
         if isinstance(token, (RawContract, AsyncContract)):

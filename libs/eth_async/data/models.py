@@ -9,7 +9,6 @@ from eth_typing import ChecksumAddress
 
 from libs.eth_async import exceptions
 from libs.eth_async.data import config
-# from data.models import Settings
 from libs.eth_async.classes import AutoRepr
 from libs.eth_async.blockscan_api import APIFunctions
 
@@ -210,35 +209,35 @@ class Network:
 class Networks:
     Arbitrum = Network(
         name='arbitrum',
-        rpc='https://rpc.ankr.com/arbitrum/',
+        rpc=config.ARBITRUM_RPC,
         chain_id=42161,
         tx_type=2,
         coin_symbol='ETH',
         decimals=18,
         explorer='https://arbiscan.io/',
         api=API(
-            key=..., url='https://api.arbiscan.io/api', # config.ARBISCAN_API_KEY
+            key=config.ARBISCAN_API_KEY, url='https://api.arbiscan.io/api',
             docs='https://docs.arbiscan.io'
         )
     )
 
     Optimism = Network(
         name='optimism',
-        rpc='https://rpc.ankr.com/optimism/',
+        rpc=config.OPTIMISM_RPC,
         chain_id=10,
         tx_type=2,
         coin_symbol='ETH',
         decimals=18,
         explorer='https://optimistic.etherscan.io/',
         api=API(
-            key=..., url='https://api-optimistic.etherscan.io/api', # config.OPTIMISTIC_API_KEY
+            key=config.OPTIMISTIC_API_KEY, url='https://api-optimistic.etherscan.io/api',
             docs='https://docs.optimistic.etherscan.io/'
         )
     )
     # Testnets
     Sepolia = Network(
         name='sepolia',
-        rpc='https://1rpc.io/sepolia',
+        rpc=config.SEPOLIA_RPC,
         chain_id=11155111,
         tx_type=2,
         coin_symbol='ETH',

@@ -16,19 +16,13 @@ else:
 
 ABIS_DIR = os.path.join(ROOT_DIR, 'data', 'abis')
 FILES_DIR = os.path.join(ROOT_DIR, 'files')
-
 LOG_FILE = os.path.join(FILES_DIR, 'log.log')
 ERRORS_FILE = os.path.join(FILES_DIR, 'errors.log')
-ETHERSCAN_API_KEY = os.path.join(FILES_DIR, 'ETHERSCAN_API_KEY.txt')
 
 IMPORT_FILE = os.path.join(FILES_DIR, 'import.csv')
-
 SETTINGS_FILE = os.path.join(FILES_DIR, 'settings.json')
-
 WALLETS_DB = os.path.join(FILES_DIR, 'wallets.db')
-
 DELAY_IN_CASE_OF_ERROR = 180
-
 
 logger.add(ERRORS_FILE, level='ERROR')
 logger.add(LOG_FILE, level='INFO')

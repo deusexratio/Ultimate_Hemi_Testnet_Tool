@@ -1,7 +1,7 @@
 import random
 
 import requests
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ReadTimeout, ProxyError
 from web3 import Web3
 from web3.eth import AsyncEth
 from fake_useragent import UserAgent
@@ -43,7 +43,7 @@ class Client:
                     your_ip = requests.get(
                         'http://eth0.me/', proxies={'http': self.proxy, 'https': self.proxy}, timeout=10
                     ).text.rstrip()
-                except ReadTimeout:
+                except (ReadTimeout, ProxyError):
                     print(f"Proxy doesn't work! {proxy}")
                 # if your_ip not in proxy:
                 #     raise exceptions.InvalidProxy(f"Proxy doesn't work! Your IP is {your_ip}.")

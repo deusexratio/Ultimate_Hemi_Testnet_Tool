@@ -1,7 +1,7 @@
 v1.0.2
 - !!! CRITICAL !!! fixed approvals for creating capsule
 - !!! CRITICAL !!! fixed approvals for swaps
-(although still need to add sign message for approval, coming next version)
+(although you still need to add sign message for approval, coming next version)
 - !!! CRITICAL !!! fixed gnosis safe creation
 - fixed daily auto reset
 - fixed proxy usage
@@ -24,3 +24,17 @@ v1.0.4
 v1.0.5
 - a lot of minor fixes
 - added cycle to try out 4 of possible pool fees for swapping, but still I guess it doesn't make a big deal
+
+v1.0.6
+- fixed swaps eth to token, added more tokens
+- !!! now you need to create in root directory of the app '.env' file and put there:
+
+ETHERSCAN_API_KEY = ''            ---REQUIRED
+ARBISCAN_API_KEY = ''             ---not required, can leave empty
+OPTIMISTIC_API_KEY = ''           ---not required, can leave empty
+SEPOLIA_RPC = ''
+ARBITRUM_RPC = ''
+OPTIMISM_RPC = ''
+
+RPCs are REQUIRED, you can put either public rpc, but it will eventually tell you that you are out of quota,
+or you can get your own on infura.io or other provider
