@@ -3,6 +3,7 @@ import json
 import random
 from datetime import datetime
 
+from retry import retry
 from web3.types import TxParams
 from fake_useragent import UserAgent
 from eth_abi import encode
@@ -43,6 +44,7 @@ class Hemi(Base):
         )
         url = response_json['tokenURI']
         return url
+
 
     async def create_capsule(self, token: RawContract | None = None, amount: float | int | None = None):
         token_list = [Contracts.Hemi_DAI, Contracts.Hemi_USDCe, Contracts.Hemi_USDTe]
@@ -96,22 +98,6 @@ class Hemi(Base):
         )
 
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
-        ''' this block was used while trying to get gas with wrong approval. Most likely will delete later
-        # if tx is None:
-        #     try:
-        #         # await asyncio.sleep(15)
-        #         # tx_params['gas'] = random.randint(600000, 800000)
-        #         # print(tx_params)
-        #         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
-        #         receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-        #         if receipt:
-        #             return f'{self.client.account.address} : {amount.Ether} {token.title} Created capsule: {tx.hash.hex()}'
-        #     except AttributeError:
-        #         return failed_text
-        # elif type(tx) is str:
-        #     return f'{failed_text} | {tx}'
-        # else:
-        '''
         # API doesn't work now so no checking tx
         if isinstance(tx, str):
             return failed_text
@@ -350,8 +336,8 @@ class Hemi(Base):
     async def get_price_to_swap(client: Client, route: str | None = 'token_to_eth',
                              amount_eth: TokenAmount | None = None,
                              amount_token: TokenAmount | None = None,
-                             token: RawContract | None = None,
-                             slippage: float = 1) -> TokenAmount | None:
+                             token: RawContract | None = None
+                             ) -> TokenAmount | None:
         headers = {
                 'accept': '*/*',
                 'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -434,14 +420,35 @@ class Hemi(Base):
 
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
         if tx is None:
-            return failed_text
+            try: # check if safe was already made
+                saltNonce = 1
+                args = TxArgs(
+                    singleton=singleton,
+                    initializer=initializer,
+                    saltNonce=saltNonce
+                )
+                tx_params = TxParams(
+                    to=contract.address,
+                    data=contract.encodeABI('createProxyWithNonce', args=args.tuple()),
+                    value=0,
+                )
+                tx_params = await self.client.transactions.auto_add_params(tx_params)
+                if tx_params['gas']:
+                    return f'Created safe for {self.client.account.address} : Safe was already created! saltNonce = 1'
+                elif type(tx) is str:
+                    return f'{failed_text} | {tx}'
+                else:
+                    return failed_text
+            except Exception as e:
+                return failed_text, e
+
         if type(tx) is str:
             return f'{failed_text} | {tx}'
         if isinstance(tx, Tx):
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-        # check_tx_error = await Base.check_tx(tx_hash=tx.hash, network=Networks.Hemi_Testnet)
-        if receipt:
-            return f'Created safe for {self.client.account.address} : {tx.hash.hex()}'
+            # check_tx_error = await Base.check_tx(tx_hash=tx.hash, network=Networks.Hemi_Testnet)
+            if receipt:
+                return f'Created safe for {self.client.account.address} : {tx.hash.hex()}'
         else:
             return failed_text
 

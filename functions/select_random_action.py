@@ -138,28 +138,26 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         return action
 
     # if nothing is done select any action in Hemi
-    if (wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_
-        and wallet.twice_weekly_capsule < 2 and wallet.safe_created is False):
+    if wallet.today_activity_swaps < 4 and wallet.twice_weekly_capsule < 3 and wallet.safe_created is False:
         possible_actions = [
             controller_hemi.hemi.create_capsule,
-            controller_hemi.hemi.swap,   # only dai swaps for now
+            controller_hemi.hemi.swap,
             controller_hemi.hemi.create_safe
         ]
         weights = [1, 1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
         return action
 
-    if (wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_
-        and wallet.safe_created is False):
+    if wallet.today_activity_swaps < 4 and wallet.safe_created is False:
         possible_actions = [
-            controller_hemi.hemi.swap,   # only dai swaps for now
+            controller_hemi.hemi.swap,
             controller_hemi.hemi.create_safe
         ]
         weights = [1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
         return action
 
-    if wallet.twice_weekly_capsule < 2 and wallet.safe_created is False:
+    if wallet.twice_weekly_capsule < 3 and wallet.safe_created is False:
         possible_actions = [
             controller_hemi.hemi.create_capsule,
             controller_hemi.hemi.create_safe
@@ -169,21 +167,20 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         return action
 
     # same but without safe
-    if (wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_
-        and wallet.twice_weekly_capsule < 2):
+    if wallet.today_activity_swaps < 4 and wallet.twice_weekly_capsule < 3:
         possible_actions = [
             controller_hemi.hemi.create_capsule,
-            controller_hemi.hemi.swap,   # only dai swaps for now
+            controller_hemi.hemi.swap,
         ]
         weights = [1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
         return action
 
     # strict when only one activity left
-    if wallet.today_activity_swaps < 2 and dai_balance_hemi.Ether > settings.token_amount_for_swap.to_:
+    if wallet.today_activity_swaps < 4:
         action = controller_hemi.hemi.swap
         return action
-    if wallet.twice_weekly_capsule < 2:
+    if wallet.twice_weekly_capsule < 3:
         action = controller_hemi.hemi.create_capsule
         return action
     if wallet.safe_created is False:

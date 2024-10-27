@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from eth_typing import HexStr
 from hexbytes import HexBytes
+from retry import retry
 
 from web3 import Web3, AsyncWeb3
 from web3.contract import AsyncContract
@@ -234,6 +235,7 @@ class Transactions:
         except:
             ValueError('max gas reached')
 
+    @retry(exceptions=(AttributeError, KeyError), tries=5, delay=1)
     async def auto_add_params(self, tx_params: TxParams) -> TxParams:
         """
         Add 'chainId', 'nonce', 'from', 'gasPrice' or 'maxFeePerGas' + 'maxPriorityFeePerGas' and 'gas' parameters to

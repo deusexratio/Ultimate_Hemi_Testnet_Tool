@@ -24,8 +24,15 @@ SETTINGS_FILE = os.path.join(FILES_DIR, 'settings.json')
 WALLETS_DB = os.path.join(FILES_DIR, 'wallets.db')
 DELAY_IN_CASE_OF_ERROR = 180
 
-logger.add(ERRORS_FILE, level='ERROR')
-logger.add(LOG_FILE, level='INFO')
+logger.remove()
+logger.add(ERRORS_FILE, level='ERROR', rotation='10 MB',
+           format='<green>{time:YY-MM-DD HH:mm:ss.SSS}</green> | <level>{level}</level> | '
+                  '<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>')
+logger.add(LOG_FILE, level='INFO', rotation='10 MB', format='<green>{time:YY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | '
+                  '<cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>')
+logger.add(sys.stderr, format='<green>{time:YY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | '
+                  '<cyan>{function}</cyan> - <level>{message}</level>')
+
 
 # logger.info('INFO')
 # logger.debug('DEBUG')

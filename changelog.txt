@@ -38,3 +38,9 @@ OPTIMISM_RPC = ''
 
 RPCs are REQUIRED, you can put either public rpc, but it will eventually tell you that you are out of quota,
 or you can get your own on infura.io or other provider
+
+v1.1
+- tuned up logs
+- now daily swaps will be done 4 times to ensure that you get points (sometimes points are missed)
+- now capsule will be created 3 times instead of 2 for same reason
+- added @retry decorators in code (you will need to "pip install -r requirements.txt" again)

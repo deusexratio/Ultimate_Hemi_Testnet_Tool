@@ -1,4 +1,6 @@
 from curl_cffi.requests import AsyncSession
+from retry import retry
+
 from libs.eth_async import exceptions
 from json.decoder import JSONDecodeError
 from curl_cffi.requests.errors import RequestsError
@@ -33,7 +35,7 @@ def aiohttp_params(params: dict[str, ...] | None) -> dict[str, str | int | float
 
     return new_params
 
-
+@retry(exceptions=(exceptions.HTTPException, RequestsError), tries=5, delay=2)
 async def async_get(url: str, headers: dict | None = None, **kwargs) -> dict | None:
     """
     Make a GET request and check if it was successful.
@@ -64,7 +66,7 @@ async def async_get(url: str, headers: dict | None = None, **kwargs) -> dict | N
     except exceptions.HTTPException(response=response, status_code=status_code) as e:
         return e
 
-
+@retry(exceptions=(JSONDecodeError, RequestsError), tries=5, delay=2)
 async def async_post(url: str,
                      data: dict | str | list,
                      headers: dict | None = None,
@@ -75,8 +77,9 @@ async def async_post(url: str,
     Make a POST request and check if it was successful.
 
     Args:
-        data: payload
-        url (str): a URL.
+        url (str): a URL,
+        data (dict, str, list): payload,
+        proxy (str, None):
         headers (Optional[dict]): the headers. (None)
         **kwargs: arguments for a GET request, e.g. 'params', 'headers', 'data' or 'json'.
         # params: params for request
@@ -112,28 +115,8 @@ async def async_post(url: str,
             status_code = response.status_code
             response = response.json()
         except (JSONDecodeError, RequestsError):
-            # retry
-            # todo: убрать костыль
-            if isinstance(data, str):
-                response = await session.post(
-                    url=url,
-                    headers=headers,
-                    data=data,
-                    proxy=proxy,
-                    # params=aio_params,
-                    **kwargs
-                )
-            if isinstance(data, (dict, list)):
-                response = await session.post(
-                    url=url,
-                    headers=headers,
-                    json=data,
-                    proxy=proxy,
-                    # params=aio_params,
-                    **kwargs
-                )
-            status_code = response.status_code
-            response = response.json()
+            return None
+            # todo: needs testing
 
         # print(status_code, response)
         if status_code <= 201:
