@@ -43,7 +43,7 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
           f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {usdc_balance_sepolia.Ether}; '
           f'dai: {dai_balance_sepolia.Ether}; usdt: {usdt_balance_sepolia.Ether}')
 
-    if not sufficient_balance_eth_sepolia:
+    if not sufficient_balance_eth_sepolia and not sufficient_balance_eth_hemi:
         if settings.use_autorefill is True:
             client_op = Client(private_key=wallet.private_key, network=Networks.Optimism)
             client_arb = Client(private_key=wallet.private_key, network=Networks.Arbitrum)
