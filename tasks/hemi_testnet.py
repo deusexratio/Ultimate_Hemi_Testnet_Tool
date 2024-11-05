@@ -13,6 +13,7 @@ from uniswap_universal_router_decoder import RouterCodec, FunctionRecipient
 from libs.eth_async.data.models import TokenAmount, RawContract, TxArgs, Network, Networks
 from libs.eth_async.exceptions import HTTPException
 from libs.eth_async.transactions import Tx
+from libs.eth_async.utils.utils import randfloat
 from libs.eth_async.utils.web_requests import async_post
 from libs.eth_async.client import Client
 from data.models import Contracts, Settings
@@ -99,14 +100,14 @@ class Hemi(Base):
 
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
         # API doesn't work now so no checking tx
-        if isinstance(tx, str):
+        if isinstance(tx, (str | None)):
             return failed_text
         receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
         if receipt:
             return f'{self.client.account.address} : {amount.Ether} {token.title} Created capsule: {tx.hash.hex()}'
         # tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
         # receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-        # check_tx_error = await Base.check_tx(tx.hash)
+        # check_tx_error = await Base.check_tx(tx.hash.hex())
         # if receipt is True and check_tx_error is False:
         else:
             return f'{failed_text}!' # Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
@@ -135,20 +136,20 @@ class Hemi(Base):
         contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Swap_Router)
         pool_fee_list = [100, 1000, 3000, 10000] # int in path is how much goes to the pool (10000 is 1%)
         if route == 'eth_to_token':
+            commands = '0x0b00'
+            value = amount_eth.Wei
+            amount_out = await Hemi.get_price_to_swap(self.client, route=route,
+                                                      token=token, amount_eth=amount_eth)
+            amount_token = amount_out
+
+            failed_text = (f'{self.client.account.address} Failed to swap {amount_eth.Ether} ETH '
+                           f'for {amount_out.Ether} {token_name} via Swap')
+            bytes_amount = encode(
+                ['uint256', 'uint256'],
+                [2, amount_eth.Wei]
+            )
             for pool_fee in pool_fee_list:
                 try:
-                    commands = '0x0b00'
-                    value = amount_eth.Wei
-                    amount_out = await Hemi.get_price_to_swap(self.client, route=route,
-                                                              token=token, amount_eth=amount_eth)
-                    amount_token = amount_out
-
-                    failed_text = (f'{self.client.account.address} Failed to swap {amount_eth.Ether} ETH '
-                                   f'for {amount_out.Ether} {token_name} via Swap')
-                    bytes_amount = encode(
-                        ['uint256', 'uint256'],
-                        [2, amount_eth.Wei]
-                    )
                     decoded_path = await Hemi.swap_route(route=route, token=token, pool_fee=pool_fee)
                     bytes_path = encode(
                         ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
@@ -170,6 +171,29 @@ class Hemi(Base):
                 except AttributeError as e:
                     return f'{e}'
             if tx is None:
+                ##### TESTING
+                # decoded_path = await Hemi.swap_route(route=route, token=token, pool_fee=3000)
+                # bytes_path = encode(
+                #     ['uint256', 'uint256', 'uint256', 'bytes', 'uint256'],
+                #     [1, amount_eth.Wei, int(amount_out.Wei * 0.8), self.client.w3.to_bytes(hexstr=decoded_path), 0]
+                # )
+                # inputs = [bytes_amount, bytes_path]
+                # args = TxArgs(commands=commands,
+                #               inputs=inputs,
+                #               deadline=int(datetime.now().timestamp()) + 3 * 60)
+                # tx_params = TxParams(to=contract.address,
+                #                      data=contract.encodeABI('execute', args=args.tuple()),
+                #                      value=value)
+                # tx_params = TxParams(
+                #     to=contract.address,
+                #     data=contract.encodeABI('execute', args=args.tuple()),
+                #     value=value,
+                #     gas=300000
+                # )
+                # tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                # print(tx)
+                # receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
+                # return receipt
                 return f"{failed_text} | couldn't estimate gas for swap with all tries of pool fees"
 
         elif route == 'token_to_eth':
@@ -309,7 +333,7 @@ class Hemi(Base):
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
         else:
             print(route, tx_params)
-        # check_tx_error = await Base.check_tx(tx_hash=tx.hash, network=Networks.Hemi_Testnet)
+        # check_tx_error = await Base.check_tx(tx_hash=tx.hash.hex(), network=Networks.Hemi_Testnet)
         if receipt:
             if route == 'eth_to_token':
                 return f'{amount_eth.Ether} Eth was swapped to {amount_token.Ether} {token_name} : {tx.hash.hex()}'
@@ -446,7 +470,7 @@ class Hemi(Base):
             return f'{failed_text} | {tx}'
         if isinstance(tx, Tx):
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-            # check_tx_error = await Base.check_tx(tx_hash=tx.hash, network=Networks.Hemi_Testnet)
+            # check_tx_error = await Base.check_tx(tx_hash=tx.hash.hex(), network=Networks.Hemi_Testnet)
             if receipt:
                 return f'Created safe for {self.client.account.address} : {tx.hash.hex()}'
         else:
@@ -510,12 +534,14 @@ class Testnet_Bridge(Base):
         seth_price = response['quote']['quoteGasAndPortionAdjusted']
         return int(seth_price) # returns int in wei
 
-    async def bridge(self, # client: Client,
-                            # amount_eth: TokenAmount,
-                            slippage: float = 5) -> str | None:
+    async def bridge(self, slippage: float = 5) -> str | None:
         settings = Settings()
         amount_eth = TokenAmount(
             amount=random.uniform(settings.autorefill_amount.from_, settings.autorefill_amount.to_),
+            decimals=18)
+        if not amount_eth:
+            amount_eth = TokenAmount(
+            amount=randfloat(settings.autorefill_amount.from_, settings.autorefill_amount.to_),
             decimals=18)
         seth_amount = await Testnet_Bridge.get_price_seth(client=self.client, amount_eth=amount_eth, slippage=slippage)
         failed_text = f'{self.client.account.address} Failed to bridge {amount_eth.Ether} ETH to Sepolia via Testnet Bridge'
@@ -557,7 +583,7 @@ class Testnet_Bridge(Base):
         if type(tx) is str:
             return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=client, timeout=500)
-        check_tx_error = await Base.check_tx(str(tx.hash))
+        check_tx_error = await Base.check_tx(str(tx.hash.hex()))
 
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount_eth.Ether} ETH was bridged to Sepolia from {network} via Testnet Bridge: {tx.hash.hex()}'
@@ -589,7 +615,7 @@ class Sepolia(Base):
         if type(tx) is str:
             return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
-        check_tx_error = await Base.check_tx(str(tx.hash))
+        check_tx_error = await Base.check_tx(str(tx.hash.hex()))
 
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount.Ether} ETH was bridged to Hemi via official bridge: {tx.hash.hex()}'
@@ -696,7 +722,7 @@ class Sepolia(Base):
             return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
         await asyncio.sleep(15)
-        check_tx_error = await Base.check_tx(str(tx.hash))
+        check_tx_error = await Base.check_tx(str(tx.hash.hex()))
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount.Ether} {from_token_name} was minted via Aave: {tx.hash.hex()}'
         else:

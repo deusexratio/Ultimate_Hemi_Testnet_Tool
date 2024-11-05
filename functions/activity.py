@@ -153,8 +153,8 @@ async def fill_queue(queue, tasks_num):
             while not queue.full():
                 q_size = queue.qsize()
                 stmt_start = (select(Wallet).where(
-                    or_(Wallet.today_activity_swaps < 2,
-                        Wallet.twice_weekly_capsule < 2,
+                    or_(Wallet.today_activity_swaps < 4,
+                        Wallet.twice_weekly_capsule < 3,
                         Wallet.safe_created.is_(False)
                     )
                 ).where(Wallet.next_action_time <= datetime.now()
@@ -307,8 +307,8 @@ async def activity(queue, tasks_num):
 
                 # Display next action time
                 stmt = (select(func.min(Wallet.next_action_time)).where(
-                    or_(Wallet.today_activity_swaps < 2,
-                        Wallet.twice_weekly_capsule < 2,
+                    or_(Wallet.today_activity_swaps < 4,
+                        Wallet.twice_weekly_capsule < 3,
                         Wallet.safe_created.is_(False)
                         )
                 )

@@ -29,6 +29,7 @@ def create_files():
         'maximum_gas_price_hemi': 10,
         'etherscan_api_key': '',
         'minimal_balance_sepolia': 0.5,
+        'minimal_balance_hemi': 0.1,
         'use_autorefill': True,
         'autorefill_amount': {'from': 0.0001, 'to': 0.0002},
         'eth_amount_for_bridge': {'from': 0.1, 'to': 0.5},

@@ -3,6 +3,7 @@ import asyncio
 import aiohttp
 
 from libs.eth_async.client import Client
+from libs.eth_async.data.config import ETHERSCAN_API_KEY
 from libs.eth_async.data.models import TokenAmount, TxStatus, Networks, Network, APIFunctions, RawContract
 from libs.eth_async.blockscan_api import Transaction
 from libs.eth_async.transactions import Tx
@@ -123,7 +124,7 @@ class Base:
             amount=randfloat(
                 from_=settings.eth_amount_for_bridge.from_,
                 to_=settings.eth_amount_for_bridge.to_,
-                step=0.0000001), decimals=18
+                step=0.0001), decimals=18
         )
 
     @staticmethod
@@ -162,18 +163,18 @@ class Base:
 
     @staticmethod
     async def check_tx(tx_hash: str, network: Network = Networks.Sepolia) -> TxStatus:
-        settings = Settings()
-        key = settings.etherscan_api_key
         url = network.api.url
-        api = APIFunctions(key=key, url=url)
+        if Network == Networks.Sepolia:
+            key = ETHERSCAN_API_KEY
+            api = APIFunctions(key=key, url=url)
+            tx = await api.transaction.getstatus(txhash=tx_hash)
+            tx_status = TxStatus(status=tx['result']['isError'], error=tx['result']['errDescription'])
+            return tx_status
+        elif Network == Networks.Hemi_Testnet:
+            api = APIFunctions(key=None, url=url)
+            tx = await api.transaction.getstatus(txhash=tx_hash)
+            tx_status = TxStatus(status=tx['result'], error=tx['revert_reason'])
+            return tx_status
         # tx = await Transaction.getstatus(txhash=tx_hash, key=key, url=url)
-        tx = await api.transaction.getstatus(txhash=tx_hash)
-        # print(tx)
-        if tx and network == Networks.Sepolia:
-            tx_status = TxStatus(status=tx['result']['isError'], error=tx['result']['errDescription'])
-            return tx_status
-        elif tx:
-            tx_status = TxStatus(status=tx['result']['isError'], error=tx['result']['errDescription'])
-            return tx_status
         else:
             return TxStatus(status='0', error='true') # если какая-то хрень с апи то по умолчанию пока возвращаю ошибку

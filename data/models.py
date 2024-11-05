@@ -33,6 +33,7 @@ class Settings(Singleton, AutoRepr):
         self.maximum_gas_price_hemi: int = json_data['maximum_gas_price_hemi']
         self.etherscan_api_key: str = json_data['etherscan_api_key']
         self.minimal_balance_sepolia: float = json_data['minimal_balance_sepolia']
+        self.minimal_balance_hemi: float = json_data['minimal_balance_hemi']
         self.use_autorefill: bool = json_data['use_autorefill']
         self.autorefill_amount: FromTo = FromTo(
             from_=json_data['autorefill_amount']['from'], to_=json_data['autorefill_amount']['to']

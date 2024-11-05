@@ -26,7 +26,7 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     sufficient_balance_eth_sepolia = float(eth_balance_sepolia.Ether) > settings.minimal_balance_sepolia # + settings.eth_amount_for_bridge.to_
 
     eth_balance_hemi = await client_hemi.wallet.balance()
-    sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > float(settings.eth_amount_for_swap.from_ * 2)
+    sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > float(settings.minimal_balance_hemi)
 
     usdc_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_USDC)
     dai_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_DAI)

@@ -1,4 +1,5 @@
 from fake_useragent import UserAgent
+from isapi.samples.redirector import proxy
 
 from libs.eth_async import exceptions
 from libs.eth_async.exceptions import APIException

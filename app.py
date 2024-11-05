@@ -16,36 +16,38 @@ async def start_script(tasks_num: int = 1):
     if not settings.etherscan_api_key:
         logger.error('Specify the API key for explorer!')
         return
-
-    queue = asyncio.Queue(maxsize=tasks_num)
-    activity_tasks = [
-        # No need for now, something is wrong with responses (str instead of dict)
-        # Later if explorer API for Hemi will work I will implement same for swaps and capsule
-        # asyncio.create_task(
-        # hourly_check_failed_txs(Contracts.Hemi_Bridge_Sepolia,
-        #                        function_names=['depositETH', 'depositERC20'],
-        #                       network=Networks.Sepolia)),
-
-        # Every 30 minutes check for done wallets that are late and correct their next action time
-        asyncio.create_task(correct_next_action_time()),
-        # Once in 24 hours reset swaps and bridges in DB
-        asyncio.create_task(auto_daily_reset_activities()),
-        # Reset capsule status in DB every 2 days
-        asyncio.create_task(auto_reset_capsule()),
-        # Constantly refill queue with activity tasks
-        asyncio.create_task(fill_queue(queue,tasks_num)),
-        # Fill in next action time for newly initialized wallets in DB
-        asyncio.create_task(first_time_launch_db()),
-    ]
-
-    i = 1
-    while i <= tasks_num:
-        activity_tasks.append(asyncio.create_task(activity(queue, tasks_num)))
-        i += 1
     try:
+        queue = asyncio.Queue(maxsize=tasks_num)
+        activity_tasks = [
+            # No need for now, something is wrong with responses (str instead of dict)
+            # Later if explorer API for Hemi will work I will implement same for swaps and capsule
+            # asyncio.create_task(
+            # hourly_check_failed_txs(Contracts.Hemi_Bridge_Sepolia,
+            #                        function_names=['depositETH', 'depositERC20'],
+            #                       network=Networks.Sepolia)),
+
+            # Every 30 minutes check for done wallets that are late and correct their next action time
+            asyncio.create_task(correct_next_action_time()),
+            # Once in 24 hours reset swaps and bridges in DB
+            asyncio.create_task(auto_daily_reset_activities()),
+            # Reset capsule status in DB every 2 days
+            asyncio.create_task(auto_reset_capsule()),
+            # Constantly refill queue with activity tasks
+            asyncio.create_task(fill_queue(queue,tasks_num)),
+            # Fill in next action time for newly initialized wallets in DB
+            asyncio.create_task(first_time_launch_db()),
+        ]
+
+        i = 1
+        while i <= tasks_num:
+            activity_tasks.append(asyncio.create_task(activity(queue, tasks_num)))
+            i += 1
+
         await asyncio.wait(activity_tasks)
     except asyncio.exceptions.CancelledError:
         print('Keyboard cancelled?')
+        for task in activity_tasks:
+            task.cancel()
 
 
 if __name__ == '__main__':

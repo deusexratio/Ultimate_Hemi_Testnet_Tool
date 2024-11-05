@@ -44,3 +44,14 @@ v1.1
 - now daily swaps will be done 4 times to ensure that you get points (sometimes points are missed)
 - now capsule will be created 3 times instead of 2 for same reason
 - added @retry decorators in code (you will need to "pip install -r requirements.txt" again)
+
+v1.2
+- added new setting: minimal balance in hemi, I recommend keeping it 0.1+ eth
+(you can just add 
+
+'minimal_balance_hemi': 0.1,
+
+to your settings.json)
+
+- fixed asyncio tasks cancelling when closing app
+- explorer API seem to work now, probably will add tx checking later on
