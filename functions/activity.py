@@ -1,13 +1,14 @@
 import random
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time
 
+from sqlalchemy.sql.functions import current_timestamp
 from sqlalchemy.testing import startswith_
 from web3 import Web3
 from loguru import logger
 from sqlalchemy import select, func, or_, and_
 
-
+from libs.eth_async.blockscan_api import APIFunctions
 from libs.eth_async.client import Client
 from libs.eth_async.data.models import Network, Networks, RawContract
 
@@ -19,11 +20,12 @@ from tasks.controller import Controller
 from functions.select_random_action import select_random_action
 from utils.update_expired import update_next_action_time, update_today_activity
 
+
 # now it's working only in sepolia
 async def hourly_check_failed_txs(contract: RawContract | str,
                                   function_names: str | list[str] | None = None,
                                   network: Network = Networks.Sepolia) -> bool:
-    await asyncio.sleep(90) # sleep at start not to interfere with activity logs, mostly for debug
+    await asyncio.sleep(90)  # sleep at start not to interfere with activity logs, mostly for debug
     while True:
         try:
             # later delete function_name argument maybe
@@ -105,6 +107,7 @@ async def hourly_check_failed_txs(contract: RawContract | str,
         finally:
             await asyncio.sleep(3600)  # sleep to check statuses every hour
 
+
 async def auto_daily_reset_activities():
     while True:
         try:
@@ -112,7 +115,7 @@ async def auto_daily_reset_activities():
             now_utc_hour = int(datetime.now(timezone.utc).time().hour)
             logger.info(f'Current UTC hour: {now_utc_hour}. Will reset activites at {reset_hour} hours.')
             activities = ['depositETH', 'depositERC20',
-                          'swaps']  # 'capsule' ,
+                          'swaps', 'recheck']  # 'capsule' ,
             if now_utc_hour == reset_hour:
                 for wallet in get_wallets():
                     update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
@@ -121,16 +124,18 @@ async def auto_daily_reset_activities():
         except BaseException:
             logger.error('Something went wrong in auto_daily_reset_activities task')
 
+
 async def auto_reset_capsule():
     while True:
         try:
-            await asyncio.sleep(172800) # sleep for three days
+            await asyncio.sleep(172800)  # sleep for three days
             for wallet in get_wallets():
                 activities = 'capsule'
                 update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
             logger.info(f'Succesfully reset capsules at {datetime.now()}')
         except BaseException:
             logger.error('Something went wrong in auto_reset_capsule task')
+
 
 def manual_daily_reset_activities() -> bool:
     try:
@@ -144,28 +149,30 @@ def manual_daily_reset_activities() -> bool:
         logger.error('Something went wrong in manual_daily_reset_activities task')
         return False
 
+
 async def fill_queue(queue, tasks_num):
     while True:
         try:
             if queue.full():
-                await asyncio.sleep(10) # todo: test
+                await asyncio.sleep(10)  # todo: test
                 continue
             while not queue.full():
                 q_size = queue.qsize()
                 stmt_start = (select(Wallet).where(
-                    or_(Wallet.today_activity_swaps < 4,
-                        Wallet.twice_weekly_capsule < 3,
+                    or_(Wallet.today_activity_swaps < 2,
+                        Wallet.twice_weekly_capsule < 2,
                         Wallet.safe_created.is_(False)
-                    )
+                        )
                 ).where(Wallet.next_action_time <= datetime.now()
-                    ).order_by(Wallet.next_action_time).offset(q_size)  # pick wallet so far from top as q_size
-                            )
+                        ).order_by(Wallet.next_action_time).offset(q_size)  # pick wallet so far from top as q_size
+                              )
                 wallet: Wallet = db.one(Wallet, stmt=stmt_start)
                 q_size = queue.qsize()
                 await queue.put(wallet)
         except BaseException:
             logger.error('Something went wrong in fill_queue task')
             return False
+
 
 async def first_time_launch_db():
     settings = Settings()
@@ -185,13 +192,15 @@ async def first_time_launch_db():
 async def correct_next_action_time():
     # Check if next action time is assigned correctly
     # and if not, add 30 minutes to a wallet that has been already done
+
+    # I guess this function is not really necessary
     while True:
         try:
             settings = Settings()
             for wallet in get_wallets():
                 if wallet.today_activity_swaps >= 2 and wallet.twice_weekly_capsule >= 2 and wallet.safe_created:
                     seconds = random.randint(settings.activity_actions_delay.from_,
-                                                                   settings.activity_actions_delay.to_)
+                                             settings.activity_actions_delay.to_)
                     update_next_action_time(private_key=wallet.private_key,
                                             seconds=seconds)
                     logger.info(
@@ -202,11 +211,73 @@ async def correct_next_action_time():
             logger.error('Something went wrong in correct_next_action_time task')
 
 
+async def check_today_tx_status(manual: bool = False):
+    while True:
+        try:
+            checking_hour = 20
+            now_utc_hour = int(datetime.now(timezone.utc).time().hour)
+            logger.info(f'Current UTC hour: {now_utc_hour}. Will recheck transactions at {checking_hour} hours.')
+            current_ts_utc = int(datetime.now(timezone.utc).timestamp())
+            checking_time = int(datetime.now(timezone.utc).replace(hour=checking_hour, minute=0, second=0,
+                                                                   microsecond=0).timestamp())
+            if current_ts_utc > checking_time and not manual:
+                await _check()
+                await asyncio.sleep(1800)
+            elif manual:
+                await _check()
+                return
+            await asyncio.sleep(1800)
+        except BaseException:
+            logger.error('Something went wrong in check_today_tx_status task')
+
+    ##########
+    # todo: ADD ALL FAILED HASHES TO DB AND RECHECK ALL WALLETS BUT DON'T DECREASE FOR FAILED TXS WHICH HAS BEEN ALREADY ADDED TO DB
+
+async def _check():
+    # past_utc_midnight_timestamp = int(datetime.combine(datetime.today(), time.min).timestamp())
+    past_utc_midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0,
+                                                           microsecond=0)
+    past_utc_midnight_timestamp = int(past_utc_midnight.timestamp())
+
+    logger.info(f"Starting to check all today tx statuses past last UTC midnight: {past_utc_midnight}")
+    api = APIFunctions(key=None, url=Networks.Hemi_Testnet.api.url)
+    past_utc_midnight_block = await api.block.getblocknobytime(past_utc_midnight_timestamp)
+    past_utc_midnight_block = int(past_utc_midnight_block['result']['blockNumber'])
+
+    for wallet in get_wallets():
+        if wallet.rechecked_txs_today:
+            continue
+        tx_dict = await api.account.txlist(address=wallet.address, startblock=past_utc_midnight_block)
+        tx_list = tx_dict.get('result')
+        if tx_list:
+            logger.info(f"{wallet} : fetched tx list, searching for failed transactions")
+            error_count = 0
+            for tx in tx_list:
+                # print(tx)
+                if tx['isError'] == '1':
+                    error_count += 1
+                    # print(tx['to'])
+                    if tx['to'] == Contracts.Hemi_Swap_Router.address.lower():
+                        logger.info(f"Found failed swap tx by: {wallet} | tx hash: {tx['hash']}")
+                        wallet.today_activity_swaps -= 1
+                        wallet.rechecked_txs_today = 1
+                    if tx['to'] == Contracts.Hemi_Capsule.address.lower():
+                        logger.info(f"Found failed capsule tx by: {wallet} | tx hash: {tx['hash']}")
+                        wallet.twice_weekly_capsule -= 1
+                        wallet.rechecked_txs_today = 1
+                db.commit()
+            if error_count == 0:
+                logger.info(f"{wallet} : didn't find failed transactions")
+            await asyncio.sleep(.5)  # sleep to not exceed API rate limits. Maybe later will add proxy to APIFunctions
+        else:
+            logger.error(f"{wallet} | Couldn't get tx list for checking")
+
+
 async def activity(queue, tasks_num):
     delay = 5
     while True:
         try:
-            settings = Settings()  # проверить чтобы настройки обновлялись каждую итерацию, в цикле вроде не работало
+            settings = Settings()
             # Fill in next action time for newly initialized wallets in DB
             await first_time_launch_db()
 
@@ -220,7 +291,7 @@ async def activity(queue, tasks_num):
             # Select wallet from DB to do an activity
             wallet = await queue.get()
             if wallet:
-                update_next_action_time(private_key=wallet.private_key, seconds=120) # put a lil bit away from queue
+                update_next_action_time(private_key=wallet.private_key, seconds=120)  # put a lil bit away from queue
                 logger.info(f'{datetime.now().time().replace(microsecond=0)} : wallet: {wallet}')
             # todo: test (for now it's holding on 120)
             if not wallet:
@@ -236,18 +307,18 @@ async def activity(queue, tasks_num):
             sepolia_action_list = [
                 controller.sepolia.deposit_eth_to_hemi, controller.sepolia.bridge_dai_to_hemi,
                 controller.sepolia.bridge_usdt_to_hemi, controller.sepolia.bridge_usdc_to_hemi,
-                controller.sepolia.faucet_dai,  controller.sepolia.faucet_usdc,  controller.sepolia.faucet_usdt
+                controller.sepolia.faucet_dai, controller.sepolia.faucet_usdc, controller.sepolia.faucet_usdt
             ]
             if action in sepolia_action_list:
                 i = 0
                 while float(gas_price_sep.Wei) > Web3.to_wei(settings.maximum_gas_price_sepolia, 'gwei') and i < 5:
                     logger.debug(f'Gas price in Sepolia is too high'
-                        f'({Web3.from_wei(gas_price_sep.Wei, "gwei")} > {settings.maximum_gas_price_sepolia})')
+                                 f'({Web3.from_wei(gas_price_sep.Wei, "gwei")} > {settings.maximum_gas_price_sepolia})')
                     await asyncio.sleep(60 * 1)
                     gas_price_sep = await client_sep.transactions.gas_price()
                     i += 1
                 if i == 5:
-                    continue # after 5 tries try to do another wallet
+                    continue  # after 5 tries try to do another wallet
 
             hemi_action_list = [controller.hemi.create_capsule, controller.hemi.create_safe, controller.hemi.swap]
             if action in hemi_action_list:
@@ -259,7 +330,7 @@ async def activity(queue, tasks_num):
                     gas_price_hemi = await client_hemi.transactions.gas_price()
                     i += 1
                 if i == 5:
-                    continue # after 5 tries try to do another wallet
+                    continue  # after 5 tries try to do another wallet
 
             if not action:
                 logger.error(f'{wallet} | select_random_action | can not choose the action')
@@ -296,6 +367,7 @@ async def activity(queue, tasks_num):
 
                 if 'ETH was bridged to Hemi via official bridge' in status:
                     update_today_activity(private_key=wallet.private_key, activity='depositETH')
+                    update_next_action_time(private_key=wallet.private_key, seconds=1000)
                 if 'stablecoin was bridged to Hemi via official bridge' in status:
                     update_today_activity(private_key=wallet.private_key, activity='depositERC20')
                 if 'swapped' in status:

@@ -10,6 +10,7 @@ from libs.eth_async.transactions import Tx
 from libs.eth_async.utils.utils import randfloat
 
 from data.models import Settings, Contracts
+from libs.eth_async.utils.web_requests import async_get
 
 
 class Base:
@@ -162,19 +163,53 @@ class Base:
         )
 
     @staticmethod
-    async def check_tx(tx_hash: str, network: Network = Networks.Sepolia) -> TxStatus:
+    async def check_tx(tx_hash: str, network: Network) -> TxStatus:
         url = network.api.url
+        if network == Networks.Hemi_Testnet:
+            key = None
+            api = APIFunctions(key=key, url=url)
+            attempts = 0
+            while True:
+                tx = await api.transaction.getstatus(txhash=tx_hash)
+                if tx:
+                    break
+                attempts += 1
+                print('checking attempts: ', attempts)
+                await asyncio.sleep(3)
+            if tx:
+                tx_status = TxStatus(status=tx['result']['isError'], error=tx['result']['errDescription'])
+            else:
+                tx_status = TxStatus(status='1', error="can't check tx result")
+            return tx_status
+
         if Network == Networks.Sepolia:
             key = ETHERSCAN_API_KEY
             api = APIFunctions(key=key, url=url)
             tx = await api.transaction.getstatus(txhash=tx_hash)
             tx_status = TxStatus(status=tx['result']['isError'], error=tx['result']['errDescription'])
             return tx_status
-        elif Network == Networks.Hemi_Testnet:
-            api = APIFunctions(key=None, url=url)
-            tx = await api.transaction.getstatus(txhash=tx_hash)
-            tx_status = TxStatus(status=tx['result'], error=tx['revert_reason'])
-            return tx_status
         # tx = await Transaction.getstatus(txhash=tx_hash, key=key, url=url)
         else:
-            return TxStatus(status='0', error='true') # если какая-то хрень с апи то по умолчанию пока возвращаю ошибку
+            return TxStatus(status='0', error='true') # if something is wrong with api an error is returned
+
+    @staticmethod
+    async def check_tx_hemi(tx_hash: str):
+        ### this function is for v2 api, I don't now know if they will leave v1 or v2
+        url = 'https://testnet.explorer.hemi.xyz/api/v2/'
+        attempts = 0
+        while True:
+            tx = await async_get(url=url + 'transactions/' + tx_hash)
+            if tx:
+                break
+            attempts+=1
+            print('checking attempts: ', attempts)
+            await asyncio.sleep(3)
+        if tx:
+            tx_result = tx['result']
+            if tx_result == 'execution reverted':
+                tx_error = TxStatus(status='1', error=tx['revert_reason'])
+            else:
+                tx_error = TxStatus(status='0', error=None)
+        else:
+            tx_error = TxStatus(status='1', error="can't check tx result")
+        return tx_error

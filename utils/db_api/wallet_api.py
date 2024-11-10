@@ -28,9 +28,14 @@ def display_insufficient_wallets():
     else:
         print(f'Found total {count} insufficient wallets')
 
+def display_current_stats():
+    for wallet in get_wallets():
+        print(f'{wallet.name} | {wallet.address} | Today swaps done: {wallet.today_activity_swaps} | This week capsules created: {wallet.twice_weekly_capsule}')
+
 
 def reset_daily_tasks():
-    return db.execute('UPDATE wallets SET today_activity_eth = 0, today_activity_erc20 = 0, today_activity_swaps = 0')
+    return db.execute('UPDATE wallets SET today_activity_eth = ?, ' # todo:  test 
+                      'today_activity_erc20 = ?, today_activity_swaps = ?', ('0', '0', '0',), True)
 
 
 db = DB(f'sqlite:///{WALLETS_DB}', echo=False, pool_recycle=3600, connect_args={'check_same_thread': False})

@@ -45,6 +45,8 @@ def update_today_activity(private_key: str, activity: str | list, key: bool = Tr
                 wallet.twice_weekly_capsule = 0
         if 'safe' in activity:
             wallet.safe_created = key
+        if 'recheck' in activity:
+            wallet.rechecked_txs_today = key
         db.commit()
         return True
     except BaseException as e:

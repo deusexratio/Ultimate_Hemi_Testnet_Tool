@@ -15,16 +15,16 @@ from libs.eth_async.blockscan_api import APIFunctions
 
 class TxStatus:
     Error: bool
-    ErrDescription: str
+    ErrDescription: str | dict
 
-    def __init__(self, status: str, error: str | None) -> None:
+    def __init__(self, status: str, error: str | dict | None) -> None:
         if status == '0':
             self.Error: bool = False
         else:
             self.Error: bool = True
 
         if error:
-            self.ErrDescription: str = error
+            self.ErrDescription: str | dict = error
         else:
             self.ErrDescription: None = None
 
@@ -258,7 +258,7 @@ class Networks:
         decimals=18,
         explorer='https://testnet.explorer.hemi.xyz',
         api=API(
-            key=..., url='https://testnet.explorer.hemi.xyz/api/v2/',
+            key=..., url='https://testnet.explorer.hemi.xyz/api',
             docs='https://testnet.explorer.hemi.xyz/api-docs'
         )
     )

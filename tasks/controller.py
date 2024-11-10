@@ -4,7 +4,7 @@ from libs.eth_async.client import Client
 from libs.eth_async.data.models import Networks, RawContract
 from data.models import Contracts
 from tasks.base import Base
-from tasks.hemi_testnet import Sepolia, Hemi, Testnet_Bridge
+from tasks.hemi_testnet import Sepolia, Hemi, TestnetBridge
 
 
 class Controller(Base):
@@ -14,7 +14,7 @@ class Controller(Base):
         self.base = Base(client=client)
         self.sepolia = Sepolia(client=client)
         self.hemi = Hemi(client=client)
-        self.testnet_bridge = Testnet_Bridge(client=client)
+        self.testnet_bridge = TestnetBridge(client=client)
 
 # Unused for now
     async def made_sepolia_bridge_eth(self) -> bool:

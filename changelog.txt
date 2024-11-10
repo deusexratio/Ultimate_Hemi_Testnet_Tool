@@ -55,3 +55,17 @@ to your settings.json)
 
 - fixed asyncio tasks cancelling when closing app
 - explorer API seem to work now, probably will add tx checking later on
+
+~~~  v2  ~~~
+- database structure updated, you will need to recreate database (added rechecked_txs_today column)
+
+- added function for rechecking statuses of today transactions by explorer API.
+every transaction is checked for failure right after getting receipt,
+but sometimes chain reverts execution a bit later, so I came with a workaround:
+now every transaction would be counted and redone if it was reverted throughout the day. 
+recheck task activates automatically at 20 UTC and picks all wallets which rechecked_txs_today is False
+when it finds at least 1 failed transaction it will mark rechecked_txs_today as True (so it won't be checked anymore today, resets at midnight together with activities)
+and for every failed swap or capsule it will decrease by 1 amount of done for today
+
+you also can call it manually through the main menu
+but don't do it too early (morning or midday UTC) unless all your wallets are done for today

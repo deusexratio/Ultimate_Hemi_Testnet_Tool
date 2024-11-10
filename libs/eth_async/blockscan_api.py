@@ -1,5 +1,4 @@
 from fake_useragent import UserAgent
-from isapi.samples.redirector import proxy
 
 from libs.eth_async import exceptions
 from libs.eth_async.exceptions import APIException
@@ -108,11 +107,44 @@ class APIFunctions:
         self.account = Account(self.key, self.url, self.headers)
         self.contract = Contract(self.key, self.url, self.headers)
         self.transaction = Transaction(self.key, self.url, self.headers)
-        # self.block = Block(self.key, self.url, self.headers)
+        self.block = Block(self.key, self.url, self.headers)
         # self.logs = Logs(self.key, self.url, self.headers)
         # self.token = Token(self.key, self.url, self.headers)
         # self.gastracker = Gastracker(self.key, self.url, self.headers)
         # self.stats = Stats(self.key, self.url, self.headers)
+
+class Block(Module):
+    """
+    Class with functions related to 'block' API module.
+    """
+    module: str = 'block'
+
+    async def getblocknobytime(self, timestamp: int, closest: str = 'after') -> dict[str, ...]:
+        """
+        Return closest block number before or after designated timestamp
+
+        Args:
+            timestamp (int): unix timestamp near which you want to get block number
+            closest (str): choose whether you want to get the closest block before or after timestamp
+
+        Returns:
+            Dict[str, Any]: the dictionary with the block number and it's status.
+        """
+        action = 'getblocknobytime'
+
+        params = {
+            'module': self.module,
+            'action': action,
+            'timestamp': timestamp,
+            'closest': closest,
+            'apikey': self.key,
+        }
+
+        if self.key is None:
+            params.pop('apikey')
+        return await async_get(self.url, params=aiohttp_params(params), headers=self.headers)
+
+
 
 
 class Account(Module):
@@ -200,6 +232,9 @@ class Account(Module):
             'sort': sort,
             'apikey': self.key,
         }
+
+        if self.key is None:
+            params.pop('apikey')
 
         return await async_get(self.url, params=aiohttp_params(params), headers=self.headers)
 

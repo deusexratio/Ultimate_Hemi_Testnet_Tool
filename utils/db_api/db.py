@@ -131,7 +131,7 @@ class DB:
             self.s.query(stmt)
 
         else:
-            raise ValueError('Wrong entities type ot smth')
+            raise ValueError('Wrong entities type or smth')
 
         # stmt = (
         #     update(table=entities).filter(columns).values()

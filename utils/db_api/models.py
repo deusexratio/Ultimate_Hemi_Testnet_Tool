@@ -21,9 +21,10 @@ class Wallet(Base):
     today_activity_bridge_eth: Mapped[int] = mapped_column(default=0)
     today_activity_bridge_erc20: Mapped[int] = mapped_column(default=0)
     insufficient_balance: Mapped[bool] = mapped_column(default=False, server_default='0')
-
     private_key: Mapped[str] = mapped_column(unique=True, index=True)
     proxy: Mapped[str]
+    rechecked_txs_today: Mapped[bool] = mapped_column(default=False, server_default='0')
+    # todo: test order in table
 
     # bridges_eth_to_hemi: Mapped[int | None] = mapped_column(default=None)
     # bridges_eth_from_hemi: Mapped[int | None] = mapped_column(default=None)

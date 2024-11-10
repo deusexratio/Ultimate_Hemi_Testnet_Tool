@@ -37,11 +37,11 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     usdt_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_USDTe)
 
     print(f'{wallet}: '
-          f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {usdc_balance_hemi.Ether}; '
-          f'dai: {dai_balance_hemi.Ether}; usdt: {usdt_balance_hemi.Ether} ||| '
+          f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_hemi.Ether))}; '
+          f'dai: {"{:.2f}".format(float(dai_balance_hemi.Ether))}; usdt: {"{:.2f}".format(float(usdt_balance_hemi.Ether))} ||| '
           f'{wallet}: '
-          f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {usdc_balance_sepolia.Ether}; '
-          f'dai: {dai_balance_sepolia.Ether}; usdt: {usdt_balance_sepolia.Ether}')
+          f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_sepolia.Ether))}; '
+          f'dai: {"{:.2f}".format(float(dai_balance_sepolia.Ether))}; usdt: {"{:.2f}".format(float(usdt_balance_sepolia.Ether))}')
 
     if not sufficient_balance_eth_sepolia and not sufficient_balance_eth_hemi:
         if settings.use_autorefill is True:
@@ -137,8 +137,8 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         action = controller_sepolia.sepolia.deposit_eth_to_hemi
         return action
 
-    # if nothing is done select any action in Hemi
-    if wallet.today_activity_swaps < 4 and wallet.twice_weekly_capsule < 3 and wallet.safe_created is False:
+    # if nothing is done for today select any action in Hemi
+    if wallet.today_activity_swaps < 2 and wallet.twice_weekly_capsule < 2 and wallet.safe_created is False:
         possible_actions = [
             controller_hemi.hemi.create_capsule,
             controller_hemi.hemi.swap,
@@ -148,7 +148,7 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         action = random.choices(possible_actions, weights=weights)[0]
         return action
 
-    if wallet.today_activity_swaps < 4 and wallet.safe_created is False:
+    if wallet.today_activity_swaps < 2 and wallet.safe_created is False:
         possible_actions = [
             controller_hemi.hemi.swap,
             controller_hemi.hemi.create_safe
@@ -157,7 +157,7 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         action = random.choices(possible_actions, weights=weights)[0]
         return action
 
-    if wallet.twice_weekly_capsule < 3 and wallet.safe_created is False:
+    if wallet.twice_weekly_capsule < 2 and wallet.safe_created is False:
         possible_actions = [
             controller_hemi.hemi.create_capsule,
             controller_hemi.hemi.create_safe
@@ -167,7 +167,7 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         return action
 
     # same but without safe
-    if wallet.today_activity_swaps < 4 and wallet.twice_weekly_capsule < 3:
+    if wallet.today_activity_swaps < 2 and wallet.twice_weekly_capsule < 2:
         possible_actions = [
             controller_hemi.hemi.create_capsule,
             controller_hemi.hemi.swap,
@@ -177,10 +177,10 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
         return action
 
     # strict when only one activity left
-    if wallet.today_activity_swaps < 4:
+    if wallet.today_activity_swaps < 2:
         action = controller_hemi.hemi.swap
         return action
-    if wallet.twice_weekly_capsule < 3:
+    if wallet.twice_weekly_capsule < 2:
         action = controller_hemi.hemi.create_capsule
         return action
     if wallet.safe_created is False:
