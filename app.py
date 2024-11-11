@@ -2,6 +2,7 @@ import asyncio
 import time
 
 from loguru import logger
+from playwright.sync_api import sync_playwright
 
 from functions.create_files import create_files
 from functions.Import import Import
@@ -38,6 +39,8 @@ async def start_script(tasks_num: int = 1):
             asyncio.create_task(fill_queue(queue,tasks_num)),
             # Fill in next action time for newly initialized wallets in DB
             asyncio.create_task(first_time_launch_db()),
+            # Recheck at the end of the day transaction statuses
+            asyncio.create_task(check_today_tx_status())
         ]
 
         # activity_tasks.append(asyncio.create_task(auto_daily_reset_activities()))
