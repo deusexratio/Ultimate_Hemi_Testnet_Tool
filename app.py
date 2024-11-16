@@ -66,7 +66,7 @@ if __name__ == '__main__':
         3) Display insufficient wallets
         4) Manually reset status of daily activities
         5) Display current stats
-        6) Manually recheck today transactions (don't select this if it has been already done automatically today at 20:00 UTC)
+        6) Manually recheck today transactions
         7) Exit.''')
             action = int(input('> '))
             if action == 1:
