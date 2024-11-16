@@ -2,15 +2,15 @@ import asyncio
 import time
 
 from loguru import logger
-from playwright.sync_api import sync_playwright
 
 from functions.create_files import create_files
 from functions.Import import Import
-from data.models import Settings, Contracts
-from functions.activity import (activity, hourly_check_failed_txs, correct_next_action_time,
+from data.models import Settings
+from functions.activity_utils import (hourly_check_failed_txs, correct_next_action_time,
                                 manual_daily_reset_activities, auto_daily_reset_activities, auto_reset_capsule,
-                                fill_queue, first_time_launch_db, check_today_tx_status)
-from utils.db_api.wallet_api import get_wallets, display_insufficient_wallets, display_current_stats
+                                fill_queue, first_time_launch_db, check_today_tx_status, clear_past_failed_txs)
+from functions.activity import activity
+from utils.db_api.wallet_api import display_insufficient_wallets, display_current_stats
 
 
 async def start_script(tasks_num: int = 1):
@@ -20,7 +20,7 @@ async def start_script(tasks_num: int = 1):
         return
     try:
         activity_tasks = []
-        queue = asyncio.Queue(maxsize=tasks_num+1)
+        queue = asyncio.Queue(maxsize=tasks_num)
         activity_tasks = [
             # No need for now, something is wrong with responses (str instead of dict)
             # Later if explorer API for Hemi will work I will implement same for swaps and capsule
@@ -40,25 +40,19 @@ async def start_script(tasks_num: int = 1):
             # Fill in next action time for newly initialized wallets in DB
             asyncio.create_task(first_time_launch_db()),
             # Recheck at the end of the day transaction statuses
-            asyncio.create_task(check_today_tx_status())
+            asyncio.create_task(check_today_tx_status()),
+            # Delete yesterday failed txs from DB to not overload it
+            asyncio.create_task(clear_past_failed_txs()),
         ]
 
-        # activity_tasks.append(asyncio.create_task(auto_daily_reset_activities()))
-        # activity_tasks.append(asyncio.create_task(auto_reset_capsule()))
-        # activity_tasks.append(asyncio.create_task(fill_queue(queue,tasks_num)))
-        # activity_tasks.append(asyncio.create_task(asyncio.create_task(first_time_launch_db())))
-
-
-        for _ in range(1, tasks_num):
-            activity_tasks.append(asyncio.create_task(activity(queue, tasks_num)))
+        for _ in range(0, tasks_num):
+            activity_tasks.append(asyncio.create_task(activity(queue)))
 
         await asyncio.wait(activity_tasks)
     except asyncio.exceptions.CancelledError:
         print('Keyboard cancelled?')
         for task in activity_tasks:
             task.cancel()
-
-
 
 
 if __name__ == '__main__':

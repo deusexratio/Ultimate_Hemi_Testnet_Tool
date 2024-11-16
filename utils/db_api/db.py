@@ -138,3 +138,12 @@ class DB:
         #
         # )
         self.s.commit()
+
+    def delete(self, row: object):
+        """
+        Updates specified columns with args
+
+        :param row: an ORM entity
+        """
+        self.s.delete(row)
+        self.commit()

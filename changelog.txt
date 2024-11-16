@@ -69,3 +69,10 @@ and for every failed swap or capsule it will decrease by 1 amount of done for to
 
 you also can call it manually through the main menu
 but don't do it too early (morning or midday UTC) unless all your wallets are done for today
+
+v2.1 
+- small architecture rebuild
+- added new table in database (you better recreate it) for checking txs in Hemi
+- added usage of both V1 and V2 explorer APIs
+as I see now, everything should work fine. only necessary transactions will be done prior to checking functions
+future updates should be minor unless some critical bugs found

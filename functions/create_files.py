@@ -13,7 +13,6 @@ def create_files():
     touch(path=config.LOG_FILE, file=True)
     touch(path=config.ERRORS_FILE, file=True)
 
-
     if not os.path.exists(config.IMPORT_FILE):
         with open(config.IMPORT_FILE, 'w') as f:
             writer = csv.writer(f)

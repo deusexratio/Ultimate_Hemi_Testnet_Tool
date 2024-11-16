@@ -1,6 +1,7 @@
 import asyncio
-
 import aiohttp
+import json
+from loguru import logger
 
 from libs.eth_async.client import Client
 from libs.eth_async.data.config import ETHERSCAN_API_KEY
@@ -169,18 +170,24 @@ class Base:
             key = None
             api = APIFunctions(key=key, url=url)
             attempts = 0
-            while True:
+            tx = {}
+            while attempts < 5:
                 tx = await api.transaction.getstatus(txhash=tx_hash)
                 if tx:
                     break
                 attempts += 1
                 print('checking attempts: ', attempts)
                 await asyncio.sleep(3)
-            if tx:
-                tx_status = TxStatus(status=tx['result']['isError'], error=tx['result']['errDescription'])
-            else:
-                tx_status = TxStatus(status='1', error="can't check tx result")
-            return tx_status
+            try:
+                if tx:
+                    tx_status = TxStatus(status=tx['result']['isError'], error=tx['result']['errDescription'])
+                else:
+                    logger.error("can't check tx result via API V1, retrying with API V2")
+                    return await Base.check_tx_hemi(tx_hash)
+                return tx_status
+            except (TypeError, json.decoder.JSONDecodeError):
+                logger.error("can't check tx result via API V1, retrying with API V2")
+                return await Base.check_tx_hemi(tx_hash)
 
         if Network == Networks.Sepolia:
             key = ETHERSCAN_API_KEY

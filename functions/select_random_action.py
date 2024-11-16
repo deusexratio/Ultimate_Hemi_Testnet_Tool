@@ -1,8 +1,5 @@
 import random
 
-from loguru import logger
-
-from libs.eth_async.blockscan_api import APIFunctions
 from libs.eth_async.client import Client
 from tasks.controller import Controller
 from data.models import Settings, Contracts
@@ -14,27 +11,24 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     settings = Settings()
     possible_actions = []
     weights = []
-    # Create Client and Controller instances for selected wallet
+    # Create Client instances for selected wallet for checking balances
     client_sepolia = Client(private_key=wallet.private_key, network=Networks.Sepolia, proxy=wallet.proxy)
-    # in testnet bridge function clients for arb and op specified manually so I will give to bridge func sepolia client
     client_hemi = Client(private_key=wallet.private_key, network=Networks.Hemi_Testnet, proxy=wallet.proxy)
-    controller = Controller(client=client_hemi)
-    controller_sepolia = Controller(client=client_sepolia)
-    controller_hemi = Controller(client=client_hemi)
+    # in testnet bridge function clients for arb and op specified manually
 
     eth_balance_sepolia = await client_sepolia.wallet.balance()
-    sufficient_balance_eth_sepolia = float(eth_balance_sepolia.Ether) > settings.minimal_balance_sepolia # + settings.eth_amount_for_bridge.to_
+    sufficient_balance_eth_sepolia = float(eth_balance_sepolia.Ether) > float(settings.minimal_balance_sepolia)
 
     eth_balance_hemi = await client_hemi.wallet.balance()
     sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > float(settings.minimal_balance_hemi)
 
-    usdc_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_USDC)
-    dai_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_DAI)
-    usdt_balance_sepolia = await controller_sepolia.client.wallet.balance(token=Contracts.Sepolia_USDT)
+    usdc_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_USDC)
+    dai_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_DAI)
+    usdt_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_USDT)
 
-    usdc_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_USDCe)
-    dai_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_DAI)
-    usdt_balance_hemi = await controller_hemi.client.wallet.balance(token=Contracts.Hemi_USDTe)
+    usdc_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_USDCe)
+    dai_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_DAI)
+    usdt_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_USDTe)
 
     print(f'{wallet}: '
           f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_hemi.Ether))}; '
@@ -45,16 +39,8 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
 
     if not sufficient_balance_eth_sepolia and not sufficient_balance_eth_hemi:
         if settings.use_autorefill is True:
-            client_op = Client(private_key=wallet.private_key, network=Networks.Optimism)
-            client_arb = Client(private_key=wallet.private_key, network=Networks.Arbitrum)
-            eth_op_balance = await client_op.wallet.balance()
-            eth_arb_balance = await client_arb.wallet.balance()
-            if (eth_op_balance.Ether < settings.autorefill_amount.to_ and
-                    eth_arb_balance.Ether < settings.autorefill_amount.to_):
-                return 'Insufficient balance and out of Ether'
-            else:
-                action = controller.testnet_bridge.bridge
-                return action
+            action = controller.testnet_bridge.bridge
+            return action
         if settings.use_autorefill is False:
             return 'Insufficient balance and not trying to refill'
 
@@ -62,10 +48,10 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     if (usdc_balance_sepolia.Ether < 10000 and usdt_balance_sepolia.Ether < 10000
             and dai_balance_sepolia.Ether < 10000 and not sufficient_balance_eth_hemi):
         possible_actions = [
-                controller_sepolia.sepolia.faucet_usdc,
-                controller_sepolia.sepolia.faucet_usdt,
-                controller_sepolia.sepolia.faucet_dai,
-                controller_sepolia.sepolia.deposit_eth_to_hemi
+                controller.sepolia.faucet_usdc,
+                controller.sepolia.faucet_usdt,
+                controller.sepolia.faucet_dai,
+                controller.sepolia.deposit_eth_to_hemi
         ]
         weights = [1, 1, 1, 2]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -74,9 +60,9 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     # make first faucets random
     if usdc_balance_sepolia.Ether < 10000 and usdt_balance_sepolia.Ether < 10000 and dai_balance_sepolia.Ether < 10000:
         possible_actions = [
-            controller_sepolia.sepolia.faucet_usdc,
-            controller_sepolia.sepolia.faucet_usdt,
-            controller_sepolia.sepolia.faucet_dai,
+            controller.sepolia.faucet_usdc,
+            controller.sepolia.faucet_usdt,
+            controller.sepolia.faucet_dai,
         ]
         weights = [1, 1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -87,10 +73,10 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     if (usdc_balance_hemi.Ether < 1000 and usdt_balance_hemi.Ether < 1000
             and dai_balance_hemi.Ether < 1000 and not sufficient_balance_eth_hemi):
         possible_actions = [
-            controller_sepolia.sepolia.bridge_usdc_to_hemi,
-            controller_sepolia.sepolia.bridge_usdt_to_hemi,
-            controller_sepolia.sepolia.bridge_dai_to_hemi,
-            controller_sepolia.sepolia.deposit_eth_to_hemi
+            controller.sepolia.bridge_usdc_to_hemi,
+            controller.sepolia.bridge_usdt_to_hemi,
+            controller.sepolia.bridge_dai_to_hemi,
+            controller.sepolia.deposit_eth_to_hemi
         ]
         weights = [1, 1, 1, 2]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -99,9 +85,9 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     # make first erc20 bridges to hemi random
     if usdc_balance_hemi.Ether < 1000 and usdt_balance_hemi.Ether < 1000 and dai_balance_hemi.Ether < 1000:
         possible_actions = [
-            controller_sepolia.sepolia.bridge_usdc_to_hemi,
-            controller_sepolia.sepolia.bridge_usdt_to_hemi,
-            controller_sepolia.sepolia.bridge_dai_to_hemi,
+            controller.sepolia.bridge_usdc_to_hemi,
+            controller.sepolia.bridge_usdt_to_hemi,
+            controller.sepolia.bridge_dai_to_hemi,
         ]
         weights = [1, 1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -109,40 +95,40 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
 
     # refill balances when used
     if usdc_balance_sepolia.Ether < settings.erc20_amount_to_bridge.to_:
-        action = controller_sepolia.sepolia.faucet_usdc
+        action = controller.sepolia.faucet_usdc
         return action
     if usdt_balance_sepolia.Ether < settings.erc20_amount_to_bridge.to_:
-        action = controller_sepolia.sepolia.faucet_usdt
+        action = controller.sepolia.faucet_usdt
         return action
     if dai_balance_sepolia.Ether < settings.erc20_amount_to_bridge.to_:
-        action = controller_sepolia.sepolia.faucet_dai
+        action = controller.sepolia.faucet_dai
         return action
 
     # refill balances when used
     if (usdc_balance_hemi.Ether < settings.token_amount_for_swap.to_ or
         usdc_balance_hemi.Ether < settings.token_amount_for_capsule.to_):
-        action = controller_sepolia.sepolia.bridge_usdc_to_hemi
+        action = controller.sepolia.bridge_usdc_to_hemi
         return action
     if (usdt_balance_hemi.Ether < settings.token_amount_for_swap.to_ or
             usdt_balance_hemi.Ether < settings.token_amount_for_capsule.to_):
-        action = controller_sepolia.sepolia.bridge_usdt_to_hemi
+        action = controller.sepolia.bridge_usdt_to_hemi
         return action
     if (dai_balance_hemi.Ether < settings.token_amount_for_swap.to_ or
             dai_balance_hemi.Ether < settings.token_amount_for_capsule.to_):
-        action = controller_sepolia.sepolia.bridge_dai_to_hemi
+        action = controller.sepolia.bridge_dai_to_hemi
         return action
 
     # strict refill eth to Hemi
     if not sufficient_balance_eth_hemi:
-        action = controller_sepolia.sepolia.deposit_eth_to_hemi
+        action = controller.sepolia.deposit_eth_to_hemi
         return action
 
     # if nothing is done for today select any action in Hemi
     if wallet.today_activity_swaps < 2 and wallet.twice_weekly_capsule < 2 and wallet.safe_created is False:
         possible_actions = [
-            controller_hemi.hemi.create_capsule,
-            controller_hemi.hemi.swap,
-            controller_hemi.hemi.create_safe
+            controller.hemi.create_capsule,
+            controller.hemi.swap,
+            controller.hemi.create_safe
         ]
         weights = [1, 1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -150,8 +136,8 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
 
     if wallet.today_activity_swaps < 2 and wallet.safe_created is False:
         possible_actions = [
-            controller_hemi.hemi.swap,
-            controller_hemi.hemi.create_safe
+            controller.hemi.swap,
+            controller.hemi.create_safe
         ]
         weights = [1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -159,8 +145,8 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
 
     if wallet.twice_weekly_capsule < 2 and wallet.safe_created is False:
         possible_actions = [
-            controller_hemi.hemi.create_capsule,
-            controller_hemi.hemi.create_safe
+            controller.hemi.create_capsule,
+            controller.hemi.create_safe
         ]
         weights = [1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -169,8 +155,8 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     # same but without safe
     if wallet.today_activity_swaps < 2 and wallet.twice_weekly_capsule < 2:
         possible_actions = [
-            controller_hemi.hemi.create_capsule,
-            controller_hemi.hemi.swap,
+            controller.hemi.create_capsule,
+            controller.hemi.swap,
         ]
         weights = [1, 1]
         action = random.choices(possible_actions, weights=weights)[0]
@@ -178,13 +164,13 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
 
     # strict when only one activity left
     if wallet.today_activity_swaps < 2:
-        action = controller_hemi.hemi.swap
+        action = controller.hemi.swap
         return action
     if wallet.twice_weekly_capsule < 2:
-        action = controller_hemi.hemi.create_capsule
+        action = controller.hemi.create_capsule
         return action
     if wallet.safe_created is False:
-        action = controller_hemi.hemi.create_safe
+        action = controller.hemi.create_safe
         return action
 
     if possible_actions:

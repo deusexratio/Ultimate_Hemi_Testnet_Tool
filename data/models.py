@@ -1,10 +1,8 @@
-import json
 from dataclasses import dataclass
 
 from libs.eth_async.utils.files import read_json
 from libs.eth_async.classes import AutoRepr, Singleton
 from libs.eth_async.data.models import RawContract, DefaultABIs
-
 from data.config import SETTINGS_FILE, ABIS_DIR
 
 

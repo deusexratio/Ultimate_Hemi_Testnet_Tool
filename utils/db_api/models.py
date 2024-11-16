@@ -23,12 +23,24 @@ class Wallet(Base):
     insufficient_balance: Mapped[bool] = mapped_column(default=False, server_default='0')
     private_key: Mapped[str] = mapped_column(unique=True, index=True)
     proxy: Mapped[str]
-    rechecked_txs_today: Mapped[bool] = mapped_column(default=False, server_default='0')
     # todo: test order in table
 
     # bridges_eth_to_hemi: Mapped[int | None] = mapped_column(default=None)
     # bridges_eth_from_hemi: Mapped[int | None] = mapped_column(default=None)
 
-
     def __repr__(self):
         return f'{self.name}: {self.address}'
+
+
+class Failed(Base):
+    __tablename__ = 'failed'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tx_hash: Mapped[str]
+    block: Mapped[int]
+    wallet_address: Mapped[str]
+    contract: Mapped[str]
+    decreased_activity_for_today: Mapped[bool] = mapped_column(default=False, server_default='0')
+
+    def __repr__(self):
+        return f'{self.wallet_address}: {self.tx_hash} | Contract : {self.contract}'

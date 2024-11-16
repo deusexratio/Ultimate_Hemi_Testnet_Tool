@@ -12,9 +12,12 @@ class Controller(Base):
         super().__init__(client)
 
         self.base = Base(client=client)
-        self.sepolia = Sepolia(client=client)
-        self.hemi = Hemi(client=client)
-        self.testnet_bridge = TestnetBridge(client=client)
+        self.sepolia = Sepolia(client=Client(private_key=client.account.key,
+                                             proxy=client.proxy, network=Networks.Sepolia))
+        self.hemi = Hemi(client=Client(private_key=client.account.key,
+                                       proxy=client.proxy, network=Networks.Hemi_Testnet))
+        self.testnet_bridge = TestnetBridge(client=Client(private_key=client.account.key,
+                                                          proxy=client.proxy, network=Networks.Optimism))
 
 # Unused for now
     async def made_sepolia_bridge_eth(self) -> bool:

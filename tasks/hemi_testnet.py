@@ -10,7 +10,7 @@ from eth_abi import encode
 from eth_abi.packed import encode_packed
 from uniswap_universal_router_decoder import RouterCodec, FunctionRecipient
 
-from libs.eth_async.data.models import TokenAmount, RawContract, TxArgs, Network, Networks
+from libs.eth_async.data.models import TokenAmount, RawContract, TxArgs, Network, Networks, TxStatus
 from libs.eth_async.exceptions import HTTPException
 from libs.eth_async.transactions import Tx
 from libs.eth_async.utils.utils import randfloat
@@ -104,6 +104,7 @@ class Hemi(Base):
         receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
         if receipt:
             check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Hemi_Testnet)
+            # check_tx_error = TxStatus(status='0', error=None)
             if check_tx_error.Error is False:
                 return f'{amount.Ether} {token.title} Created capsule: {tx.hash.hex()}'
             else:
@@ -334,6 +335,7 @@ class Hemi(Base):
             return f"{failed_text} | all attempts failed. Didn't send transaction"
         if receipt:
             check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Hemi_Testnet)
+            # check_tx_error = TxStatus(status='0', error=None)
             if check_tx_error.Error is False:
                 if route == 'eth_to_token':
                     return f'{amount_eth.Ether} Eth was swapped to {amount_token.Ether} {token_name} : {tx.hash.hex()}'
@@ -475,6 +477,7 @@ class Hemi(Base):
             receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
             if receipt:
                 check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Hemi_Testnet)
+                # check_tx_error = TxStatus(status='0', error=None)
                 if check_tx_error.Error is False:
                     return f'Created safe for {self.client.account.address} : {tx.hash.hex()}'
                 else:
@@ -623,8 +626,7 @@ class Sepolia(Base):
         if type(tx) is str:
             return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
-        check_tx_error = await Base.check_tx(str(tx.hash))
-
+        check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount.Ether} ETH was bridged to Hemi via official bridge: {tx.hash.hex()}'
         else:
@@ -682,7 +684,7 @@ class Sepolia(Base):
         if type(tx) is str:
             return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
-        check_tx_error = await Base.check_tx(tx.hash.hex())
+        check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
 
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount.Ether} {from_token_name} stablecoin was bridged to Hemi via official bridge: {tx.hash.hex()}'
@@ -730,7 +732,7 @@ class Sepolia(Base):
             return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
         await asyncio.sleep(15)
-        check_tx_error = await Base.check_tx(str(tx.hash.hex()))
+        check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount.Ether} {from_token_name} was minted via Aave: {tx.hash.hex()}'
         else:
