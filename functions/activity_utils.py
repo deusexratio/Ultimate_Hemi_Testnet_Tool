@@ -52,7 +52,7 @@ async def hourly_check_failed_txs(contract: RawContract | str,
                         # print(key, value)
                         if value:  # check if tx exists, failed to come up with additional checks for now
                             logger.info(f"Found failed tx in sepolia {key}")
-                            update_today_activity(private_key=wallet.private_key, activity=key, key=False)
+                            update_today_activity(private_key=wallet.private_key, activity=key, key='-')
 
                     # Update statuses in DB for successful txs (needed bc failed txs been marked so for a whole day
                     # which leads to an endless daily activity cycle for a wallet)
@@ -69,7 +69,7 @@ async def hourly_check_failed_txs(contract: RawContract | str,
                         # print(key, value)
                         if value:  # check if tx exists, failed to come up with additional checks for now
                             logger.info(f"Found NOT failed tx in sepolia {key}")
-                            update_today_activity(private_key=wallet.private_key, activity=key, key=True)
+                            update_today_activity(private_key=wallet.private_key, activity=key, key='+')
 
                 # STRING NOT TESTED
                 elif isinstance(function_names, str):
@@ -88,9 +88,9 @@ async def hourly_check_failed_txs(contract: RawContract | str,
                         is_error='0'
                     )
                     if txs_with_error:
-                        update_today_activity(private_key=wallet.private_key, activity=function_names, key=False)
+                        update_today_activity(private_key=wallet.private_key, activity=function_names, key='-')
                     elif txs_without_error:
-                        update_today_activity(private_key=wallet.private_key, activity=function_names, key=True)
+                        update_today_activity(private_key=wallet.private_key, activity=function_names, key='+')
 
                 else:
                     logger.error(f'Wrong function names given to hourly_check_failed_txs: {function_names}')
@@ -113,7 +113,7 @@ async def auto_daily_reset_activities():
                           'swaps', 'recheck']  # 'capsule' ,
             if now_utc_hour == reset_hour:
                 for wallet in get_wallets():
-                    update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
+                    update_today_activity(private_key=wallet.private_key, activity=activities, key='0')
                 logger.success(f'Succesfully reset activities at {datetime.now()}')
             await asyncio.sleep(1800)  # wait for next hour to try
         except BaseException:
@@ -126,7 +126,7 @@ async def auto_reset_capsule():
             await asyncio.sleep(172800)  # sleep for three days
             for wallet in get_wallets():
                 activities = 'capsule'
-                update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
+                update_today_activity(private_key=wallet.private_key, activity=activities, key='0')
             logger.info(f'Succesfully reset capsules at {datetime.now()}')
         except BaseException:
             logger.error('Something went wrong in auto_reset_capsule task')
@@ -137,7 +137,7 @@ def manual_daily_reset_activities() -> bool:
         activities = ['depositETH', 'depositERC20',
                       'swaps', 'capsule']
         for wallet in get_wallets():
-            update_today_activity(private_key=wallet.private_key, activity=activities, key=False)
+            update_today_activity(private_key=wallet.private_key, activity=activities, key='0')
         logger.info(f'Succesfully reset all activities except Safe at {datetime.now()}')
         return True
     except BaseException:
