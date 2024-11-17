@@ -133,8 +133,7 @@ class Tx(AutoRepr):
             }
             tx = TxParams(cancel_tx_params)
             replacement_tx = await client.transactions.sign_and_send(tx_params=tx)
-            receipt = await replacement_tx.wait_for_receipt(client=client, timeout=20)
-            return receipt
+            return await replacement_tx.wait_for_receipt(client=client, timeout=300)
         except TransactionException as e:
             return False
 
@@ -142,11 +141,10 @@ class Tx(AutoRepr):
         # inputs client and Tx (self)
         # needs testing
         try:
-            self.params['gasPrice'] = self.params['gasPrice'] * 1.103
+            self.params['gasPrice'] = (await client.transactions.gas_price()).Wei * 1.103
             tx_params = TxParams(self.params)
             replacement_tx = await client.transactions.sign_and_send(tx_params=tx_params)
-            receipt = await replacement_tx.wait_for_receipt(client=client, timeout=20)
-            return receipt
+            return await replacement_tx.wait_for_receipt(client=client, timeout=300)
         except TransactionException as e:
             return False
 

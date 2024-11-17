@@ -68,33 +68,33 @@ if __name__ == '__main__':
         5) Display current stats
         6) Manually recheck today transactions
         7) Exit.''')
-            action = int(input('> '))
-            if action == 1:
-                asyncio.run(Import.wallets())
-                time.sleep(3)
-                continue
-            elif action == 2:
-                tasks_num = int(input('Enter number of concurrent tasks for activities: '))
-                asyncio.run(start_script(tasks_num))
-                break
-            elif action == 3:
-                display_insufficient_wallets()
-                time.sleep(1)
-                continue
-            elif action == 4:
-                manual_daily_reset_activities()
-                time.sleep(1)
-                continue
-            elif action == 5:
-                display_current_stats()
-                time.sleep(1)
-                continue
-            elif action == 6:
-                asyncio.run(check_today_tx_status(manual=True))
-                time.sleep(1)
-                continue
-            else:
-                break
+            match int(input('> ')):
+                case 1:
+                    asyncio.run(Import.wallets())
+                    time.sleep(3)
+                    continue
+                case 2:
+                    tasks_num = int(input('Enter number of concurrent tasks for activities: '))
+                    asyncio.run(start_script(tasks_num))
+                    break
+                case 3:
+                    display_insufficient_wallets()
+                    time.sleep(1)
+                    continue
+                case 4:
+                    manual_daily_reset_activities()
+                    time.sleep(1)
+                    continue
+                case 5:
+                    display_current_stats()
+                    time.sleep(1)
+                    continue
+                case 6:
+                    asyncio.run(check_today_tx_status(manual=True))
+                    time.sleep(1)
+                    continue
+                case _:
+                    break
 
     except (asyncio.exceptions.CancelledError, KeyboardInterrupt):
         print('Keyboard cancelled?')

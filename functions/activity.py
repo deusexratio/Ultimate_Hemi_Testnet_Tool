@@ -85,6 +85,11 @@ async def activity(queue):
                 update_next_action_time(private_key=wallet.private_key, seconds=DELAY_IN_CASE_OF_ERROR)
                 continue
 
+            if action == 'Waiting for incoming ETH deposit in Hemi':
+                logger.info(f'{wallet} : waiting for incoming ETH deposit in Hemi')
+                update_next_action_time(private_key=wallet.private_key, seconds=DELAY_IN_CASE_OF_ERROR)
+                continue
+
             if action == 'Insufficient balance and not trying to refill':
                 logger.critical(f'{wallet} : {action}')
                 update_next_action_time(private_key=wallet.private_key, seconds=DELAY_IN_CASE_OF_ERROR)
@@ -133,7 +138,10 @@ async def activity(queue):
                 )
                 )
                 next_action_time = db.one(stmt=stmt)
-                logger.info(f'The next closest activity action will be performed at {next_action_time}')
+                if next_action_time:
+                    logger.info(f'The next closest activity action will be performed at {next_action_time}')
+                else:
+                    logger.info(f'Seems like all wallets are done for today')
 
             else:
                 update_next_action_time(private_key=wallet.private_key, seconds=DELAY_IN_CASE_OF_ERROR)

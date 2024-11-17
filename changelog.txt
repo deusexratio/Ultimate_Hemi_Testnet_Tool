@@ -76,3 +76,6 @@ v2.1
 - added usage of both V1 and V2 explorer APIs
 as I see now, everything should work fine. only necessary transactions will be done prior to checking functions
 future updates should be minor unless some critical bugs found
+
+v2.1.1
+- added waiting delays after bridging ETH to Hemi from Sepolia if wallet had less ETH Hemi than minimum stated in settings

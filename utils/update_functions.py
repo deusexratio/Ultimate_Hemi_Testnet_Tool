@@ -7,7 +7,6 @@ def update_next_action_time(private_key: str, seconds: int) -> bool:
     try:
         wallet = get_wallet(private_key=private_key)
         wallet.next_action_time = datetime.now() + timedelta(seconds=seconds)
-        # print(wallet.next_action_time)
         db.commit()
         return True
     except BaseException:

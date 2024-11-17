@@ -97,7 +97,7 @@ async def hourly_check_failed_txs(contract: RawContract | str,
                 await asyncio.sleep(3)  # sleep to not exceed api request limit
 
         except BaseException as e:
-            logger.exception(f'Something went wrong: {e}')
+            logger.exception(f'Something went wrong in hourly_check_failed_txs: {e}')
             return False
         finally:
             await asyncio.sleep(3600)  # sleep to check statuses every hour
@@ -116,8 +116,8 @@ async def auto_daily_reset_activities():
                     update_today_activity(private_key=wallet.private_key, activity=activities, key='0')
                 logger.success(f'Succesfully reset activities at {datetime.now()}')
             await asyncio.sleep(1800)  # wait for next hour to try
-        except BaseException:
-            logger.error('Something went wrong in auto_daily_reset_activities task')
+        except BaseException as e:
+            logger.error(f'Something went wrong in auto_daily_reset_activities task {e}')
 
 
 async def auto_reset_capsule():
@@ -128,8 +128,8 @@ async def auto_reset_capsule():
                 activities = 'capsule'
                 update_today_activity(private_key=wallet.private_key, activity=activities, key='0')
             logger.info(f'Succesfully reset capsules at {datetime.now()}')
-        except BaseException:
-            logger.error('Something went wrong in auto_reset_capsule task')
+        except BaseException as e:
+            logger.error(f'Something went wrong in auto_reset_capsule task {e}')
 
 
 def manual_daily_reset_activities() -> bool:
@@ -140,8 +140,8 @@ def manual_daily_reset_activities() -> bool:
             update_today_activity(private_key=wallet.private_key, activity=activities, key='0')
         logger.info(f'Succesfully reset all activities except Safe at {datetime.now()}')
         return True
-    except BaseException:
-        logger.error('Something went wrong in manual_daily_reset_activities task')
+    except BaseException as e:
+        logger.error(f'Something went wrong in manual_daily_reset_activities task {e}')
         return False
 
 
@@ -166,8 +166,8 @@ async def fill_queue(queue, tasks_num):
                               )
                 wallet: Wallet = db.one(Wallet, stmt=stmt_start)
                 await queue.put(wallet)
-        except BaseException:
-            logger.error('Something went wrong in fill_queue task')
+        except BaseException as e:
+            logger.error(f'Something went wrong in fill_queue task {e}')
             return False
 
 
@@ -211,8 +211,8 @@ async def correct_next_action_time():
                         f'Added {seconds} seconds to next action time '
                         f'for already done wallet: {wallet} : {wallet.next_action_time}')
             await asyncio.sleep(1800)
-        except BaseException:
-            logger.error('Something went wrong in correct_next_action_time task')
+        except BaseException as e:
+            logger.error(f'Something went wrong in correct_next_action_time task : {e}')
 
 async def _past_block(api: APIFunctions):
     # past_utc_midnight_timestamp = int(datetime.combine(datetime.today(), time.min).timestamp())
@@ -275,8 +275,8 @@ async def check_today_tx_status(manual: bool = False):
             logger.info(f'Current UTC hour: {now_utc_hour}. Сheck_today_tx_status is idle.')
             await asyncio.sleep(1800)
             await _check()
-        except BaseException:
-            logger.error('Something went wrong in check_today_tx_status task')
+        except BaseException as e:
+            logger.error(f'Something went wrong in check_today_tx_status task: {e}')
 
 
 async def clear_past_failed_txs():

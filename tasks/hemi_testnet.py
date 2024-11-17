@@ -562,11 +562,11 @@ class TestnetBridge(Base):
         arb_balance = await arb_client.wallet.balance()
 
         if op_balance.Wei > arb_balance.Wei and op_balance.Ether > settings.autorefill_amount.to_:
-            client = op_client
+            self.client.network = Networks.Optimism
             contract = await self.client.contracts.get(contract_address=Contracts.Testnet_Bridge_Optimism)
             network = 'Optimism'
         elif arb_balance.Wei > op_balance.Wei and arb_balance.Ether > settings.autorefill_amount.to_:
-            client = arb_client
+            self.client.network = Networks.Arbitrum
             contract = await self.client.contracts.get(contract_address=Contracts.Testnet_Bridge_Arbitrum)
             network = 'Arbitrum'
         else:
@@ -576,8 +576,8 @@ class TestnetBridge(Base):
             amountIn=amount_eth.Wei,
             amountOutMin=int(seth_amount * (100-slippage)/100),
             dstChainId=161,
-            to=client.account.address,
-            refundAddress=client.account.address,
+            to=self.client.account.address,
+            refundAddress=self.client.account.address,
             zroPaymentAddress='0x0000000000000000000000000000000000000000',
             adapterParams=b'',
         )
@@ -588,13 +588,13 @@ class TestnetBridge(Base):
             value=int(amount_eth.Wei * 1.07) # added L0 fee, can't count it for now
         )
 
-        tx = await client.transactions.sign_and_send(tx_params=tx_params)
+        tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
             return f'{failed_text} | {tx}'
-        receipt = await tx.wait_for_receipt(client=client, timeout=500)
-        check_tx_error = await Base.check_tx(str(tx.hash))
+        receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
+        check_tx_error = await Base.check_tx(str(tx.hash.hex()), network=self.client.network)
 
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount_eth.Ether} ETH was bridged to Sepolia from {network} via Testnet Bridge: {tx.hash.hex()}'
@@ -605,9 +605,9 @@ class TestnetBridge(Base):
 
 class Sepolia(Base):
     async def deposit_eth_to_hemi(self, amount: TokenAmount | None = None) -> str:
-        failed_text = f'{self.client.account.address} Failed to bridge {amount} ETH to Hemi via Official Bridge'
         if not amount:
             amount = Base.get_eth_amount_for_bridge()
+        failed_text = f'{self.client.account.address} Failed to bridge {amount} ETH to Hemi via Official Bridge'
         contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Bridge_Sepolia)
         args = TxArgs(
             _minGasLimit=200000,
@@ -624,8 +624,19 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            return f'{failed_text} | {tx}'
+            if 'replacement transaction underpriced' in tx:
+                tx_params = TxParams(
+                    to=contract.address,
+                    data=contract.encodeABI('depositETH', args=args.tuple()),
+                    value=amount.Wei,
+                    gasPrice=(await self.client.transactions.gas_price()).Wei * 2,
+                )
+                tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                if type(tx) is str:
+                    return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
+        # if not receipt:
+        #     receipt = await tx.speed_up(client=self.client)
         check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
         if bool(receipt) is True and check_tx_error.Error is False:
             return f'{amount.Ether} ETH was bridged to Hemi via official bridge: {tx.hash.hex()}'
@@ -682,7 +693,16 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            return f'{failed_text} | {tx}'
+            if 'replacement transaction underpriced' in tx:
+                tx_params = TxParams(
+                    to=contract.address,
+                    data=contract.encodeABI('depositERC20', args=args.tuple()),
+                    value=0,
+                    gasPrice=(await self.client.transactions.gas_price()).Wei * 2,
+                )
+                tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                if type(tx) is str:
+                    return f'{failed_text} | {tx}'
         receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
         check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
 
@@ -747,4 +767,3 @@ class Sepolia(Base):
 
     async def faucet_dai(self) -> str:
         return await self._faucet(token=Contracts.Sepolia_DAI)
-

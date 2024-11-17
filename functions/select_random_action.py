@@ -21,6 +21,11 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
 
     eth_balance_hemi = await client_hemi.wallet.balance()
     sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > float(settings.minimal_balance_hemi)
+    if wallet.today_activity_bridge_eth:
+        if not sufficient_balance_eth_hemi:
+            return 'Waiting for incoming ETH deposit in Hemi'
+        # sufficient_balance_eth_hemi = True
+        # kind of hardcode because bridged funds take too much time to get to Hemi
 
     usdc_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_USDC)
     dai_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_DAI)
@@ -31,11 +36,10 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     usdt_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_USDTe)
 
     print(f'{wallet}: '
-          f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_hemi.Ether))}; '
-          f'dai: {"{:.2f}".format(float(dai_balance_hemi.Ether))}; usdt: {"{:.2f}".format(float(usdt_balance_hemi.Ether))} ||| '
-          f'{wallet}: '
-          f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_sepolia.Ether))}; '
-          f'dai: {"{:.2f}".format(float(dai_balance_sepolia.Ether))}; usdt: {"{:.2f}".format(float(usdt_balance_sepolia.Ether))}')
+    f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_hemi.Ether))}; '
+    f'dai: {"{:.2f}".format(float(dai_balance_hemi.Ether))}; usdt: {"{:.2f}".format(float(usdt_balance_hemi.Ether))} ||| '
+    f'Balances in Sepolia: eth: {eth_balance_sepolia.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_sepolia.Ether))}; '
+    f'dai: {"{:.2f}".format(float(dai_balance_sepolia.Ether))}; usdt: {"{:.2f}".format(float(usdt_balance_sepolia.Ether))}')
 
     if not sufficient_balance_eth_sepolia and not sufficient_balance_eth_hemi:
         if settings.use_autorefill is True:
