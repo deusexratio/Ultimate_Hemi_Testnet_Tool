@@ -145,7 +145,7 @@ async def activity(queue):
 
             else:
                 update_next_action_time(private_key=wallet.private_key, seconds=DELAY_IN_CASE_OF_ERROR)
-                logger.error(f'{wallet.address}: {status}')
+                logger.error(f'{wallet}: {status}')
 
             # end of cycle for wallet, sleep for random designated time
             await asyncio.sleep(random.randint(settings.activity_actions_delay.from_,

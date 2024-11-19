@@ -59,7 +59,7 @@ class Hemi(Base):
         if not amount:
             amount = Base.get_token_amount_for_capsule(token=token)
 
-        failed_text = f'{self.client.account.address} : Failed to create capsule {amount.Ether} {token.title} via Capsule'
+        failed_text = f'Failed to create capsule {amount.Ether} {token.title} via Capsule'
         contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Capsule)
         token_balance = await self.client.wallet.balance(token=token)
         if token_balance != 0:
@@ -142,8 +142,7 @@ class Hemi(Base):
                                                       token=token, amount_eth=amount_eth)
             amount_token = amount_out
 
-            failed_text = (f'{self.client.account.address} Failed to swap {amount_eth.Ether} ETH '
-                           f'for {amount_out.Ether} {token_name} via Swap')
+            failed_text = f'Failed to swap {amount_eth.Ether} ETH for {amount_out.Ether} {token_name} via Swap'
             bytes_amount = encode(
                 ['uint256', 'uint256'],
                 [2, amount_eth.Wei]
@@ -210,7 +209,7 @@ class Hemi(Base):
             amount_out = await Hemi.get_price_to_swap(self.client, route=route,
                                                       token=token, amount_token=amount_token)
             amount_eth = amount_out
-            failed_text = (f'{self.client.account.address} Failed to swap {amount_token.Ether} {token_name} '
+            failed_text = (f'Failed to swap {amount_token.Ether} {token_name} '
                            f'for {amount_out.Ether} ETH via Swap')
             value = 0
             commands = '0x000c'
@@ -395,8 +394,11 @@ class Hemi(Base):
                 response = await async_post(
                     url='https://hgc8sm30t0.execute-api.eu-central-1.amazonaws.com/production/v2/quote',
                     headers=headers, data=data, proxy=client.proxy)
-                price = response['allQuotes'][0]['quote']['quote']
-                return TokenAmount(amount=int(price), wei=True, decimals=18)
+                if response:
+                    price = response['allQuotes'][0]['quote']['quote']
+                    return TokenAmount(amount=int(price), wei=True, decimals=18)
+                else:
+                    return TokenAmount(amount=int(float(amount_token.Ether) * 0.00000049425861441796), wei=False, decimals=18)
             elif route == 'eth_to_token':
                 data = ('{"tokenInChainId":743111,'
                         '"tokenIn":"ETH",'
@@ -408,14 +410,17 @@ class Hemi(Base):
                 response = await async_post(
                     url='https://hgc8sm30t0.execute-api.eu-central-1.amazonaws.com/production/v2/quote',
                     headers=headers, data=data, proxy=client.proxy)
-                price = response['allQuotes'][0]['quote']['quote']
-                return TokenAmount(amount=int(price), wei=True, decimals=token.decimals)
+                if response:
+                    price = response['allQuotes'][0]['quote']['quote']
+                    return TokenAmount(amount=int(price), wei=True, decimals=token.decimals)
+                else:
+                    return TokenAmount(amount=int(amount_eth.Wei * 2010636), wei=True, decimals=token.decimals)
         except ValueError as e:
             print(f'{e} wrong route given to get_price_to_swap')
 
 
     async def create_safe(self):
-        failed_text = f'{self.client.account.address} Failed to create safe for {self.client.account.address}'
+        failed_text = f'Failed to create safe for {self.client.account.address}'
         contract = await self.client.contracts.get(contract_address=Contracts.Gnosis_Safe)
 
         singleton = self.client.w3.to_checksum_address('3e5c63644e683549055b9be8653de26e0b4cd36e')
