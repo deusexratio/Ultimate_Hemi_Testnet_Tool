@@ -79,3 +79,7 @@ future updates should be minor unless some critical bugs found
 
 v2.1.1
 - added waiting delays after bridging ETH to Hemi from Sepolia if wallet had less ETH Hemi than minimum stated in settings
+
+v2.1.2
+- minor fixes (roughly speed up in Sepolia if tx stuck)
+- .env creates automatically at start

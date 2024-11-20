@@ -612,7 +612,7 @@ class Sepolia(Base):
     async def deposit_eth_to_hemi(self, amount: TokenAmount | None = None) -> str:
         if not amount:
             amount = Base.get_eth_amount_for_bridge()
-        failed_text = f'{self.client.account.address} Failed to bridge {amount} ETH to Hemi via Official Bridge'
+        failed_text = f'Failed to bridge {amount} ETH to Hemi via Official Bridge'
         contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Bridge_Sepolia)
         args = TxArgs(
             _minGasLimit=200000,
@@ -629,7 +629,7 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            if 'replacement transaction underpriced' in tx:
+            if 'replacement transaction underpriced' or 'replace' in tx:
                 tx_params = TxParams(
                     to=contract.address,
                     data=contract.encodeABI('depositETH', args=args.tuple()),
@@ -639,15 +639,22 @@ class Sepolia(Base):
                 tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
                 if type(tx) is str:
                     return f'{failed_text} | {tx}'
-        receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
+        if isinstance(tx, Tx):
+            receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
+        else:
+            print(tx_params)
+            return f"{failed_text} | Didn't send transaction"
+        if receipt:
+            check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
+            # check_tx_error = TxStatus(status='0', error=None)
+            if check_tx_error.Error is False:
+                return f'{failed_text}! Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
+            else:
+                return f'{amount.Ether} ETH was bridged to Hemi via official bridge: {tx.hash.hex()}'
+        else:
+            return f"{failed_text}! Sent transaction but didn't get receipt"
         # if not receipt:
         #     receipt = await tx.speed_up(client=self.client)
-        check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
-        if bool(receipt) is True and check_tx_error.Error is False:
-            return f'{amount.Ether} ETH was bridged to Hemi via official bridge: {tx.hash.hex()}'
-        else:
-            print(f'check_tx_error bridge eth: {check_tx_error.Error}')
-            return f'{failed_text}! Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
 
     async def _deposit_erc20_to_hemi(self, token: RawContract, amount: TokenAmount | None = None) -> str:
         if not amount:
@@ -655,7 +662,7 @@ class Sepolia(Base):
         from_token = await self.client.contracts.default_token(contract_address=token.address)
         from_token_name = await from_token.functions.symbol().call()
 
-        failed_text = f'{self.client.account.address} Failed to bridge {amount.Ether} {from_token_name} to Hemi via Official Bridge'
+        failed_text = f'Failed to bridge {amount.Ether} {from_token_name} to Hemi via Official Bridge'
         contract = await self.client.contracts.get(contract_address=Contracts.Hemi_Bridge_Sepolia)
 
         wallet_amount = await self.client.wallet.balance(token=from_token)
@@ -698,7 +705,7 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            if 'replacement transaction underpriced' in tx:
+            if 'replacement transaction underpriced' or 'replace' in tx:
                 tx_params = TxParams(
                     to=contract.address,
                     data=contract.encodeABI('depositERC20', args=args.tuple()),
@@ -708,14 +715,20 @@ class Sepolia(Base):
                 tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
                 if type(tx) is str:
                     return f'{failed_text} | {tx}'
-        receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
-        check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
-
-        if bool(receipt) is True and check_tx_error.Error is False:
-            return f'{amount.Ether} {from_token_name} stablecoin was bridged to Hemi via official bridge: {tx.hash.hex()}'
+        if isinstance(tx, Tx):
+            receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
         else:
-            print(f'check_tx_error bridge erc20: {check_tx_error.Error}')
-            return f'{failed_text}! Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
+            print(tx_params)
+            return f"{failed_text} | Didn't send transaction"
+        if receipt:
+            check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
+            # check_tx_error = TxStatus(status='0', error=None)
+            if check_tx_error.Error is False:
+                return f'{failed_text}! Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
+            else:
+                return f'{amount.Ether} {from_token_name} was bridged to Hemi via official bridge: {tx.hash.hex()}'
+        else:
+            return f"{failed_text}! Sent transaction but didn't get receipt"
 
     async def bridge_usdc_to_hemi(self) -> str:
         return await self._deposit_erc20_to_hemi(token=Contracts.Sepolia_USDC)
@@ -754,15 +767,30 @@ class Sepolia(Base):
         if tx is None:
             return f'{failed_text}'
         if type(tx) is str:
-            return f'{failed_text} | {tx}'
-        receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
-        await asyncio.sleep(15)
-        check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
-        if bool(receipt) is True and check_tx_error.Error is False:
-            return f'{amount.Ether} {from_token_name} was minted via Aave: {tx.hash.hex()}'
+            if 'replacement transaction underpriced' or 'replace' in tx:
+                tx_params = TxParams(
+                    to=contract.address,
+                    data=contract.encodeABI('depositERC20', args=args.tuple()),
+                    value=0,
+                    gasPrice=(await self.client.transactions.gas_price()).Wei * 2,
+                )
+                tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
+                if type(tx) is str:
+                    return f'{failed_text} | {tx}'
+        if isinstance(tx, Tx):
+            receipt = await tx.wait_for_receipt(client=self.client, timeout=500)
         else:
-            print(f'check_tx_error faucet: {check_tx_error.Error}')
-            return f'{failed_text}! Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
+            print(tx_params)
+            return f"{failed_text} | Didn't send transaction"
+        if receipt:
+            check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Sepolia)
+            # check_tx_error = TxStatus(status='0', error=None)
+            if check_tx_error.Error is False:
+                return f'{failed_text}! Error: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
+            else:
+                return f'{amount.Ether} {from_token_name} was minted via Aave: {tx.hash.hex()}'
+        else:
+            return f"{failed_text}! Sent transaction but didn't get receipt"
 
     async def faucet_usdc(self) -> str:
         return await self._faucet(token=Contracts.Sepolia_USDC)
