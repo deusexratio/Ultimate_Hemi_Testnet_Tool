@@ -770,7 +770,7 @@ class Sepolia(Base):
             if 'replacement transaction underpriced' or 'replace' in tx:
                 tx_params = TxParams(
                     to=contract.address,
-                    data=contract.encodeABI('depositERC20', args=args.tuple()),
+                    data=contract.encodeABI('mint', args=args.tuple()),
                     value=0,
                     gasPrice=(await self.client.transactions.gas_price()).Wei * 2,
                 )
