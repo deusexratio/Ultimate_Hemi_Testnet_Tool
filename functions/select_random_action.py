@@ -1,4 +1,5 @@
 import random
+from loguru import logger
 
 from libs.eth_async.client import Client
 from tasks.controller import Controller
@@ -15,25 +16,30 @@ async def select_random_action(wallet: Wallet, controller: Controller | None = N
     client_sepolia = Client(private_key=wallet.private_key, network=Networks.Sepolia, proxy=wallet.proxy)
     client_hemi = Client(private_key=wallet.private_key, network=Networks.Hemi_Testnet, proxy=wallet.proxy)
     # in testnet bridge function clients for arb and op specified manually
+    try:
+        eth_balance_sepolia = await client_sepolia.wallet.balance()
+        sufficient_balance_eth_sepolia = float(eth_balance_sepolia.Ether) > float(settings.minimal_balance_sepolia)
 
-    eth_balance_sepolia = await client_sepolia.wallet.balance()
-    sufficient_balance_eth_sepolia = float(eth_balance_sepolia.Ether) > float(settings.minimal_balance_sepolia)
+        eth_balance_hemi = await client_hemi.wallet.balance()
+        sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > float(settings.minimal_balance_hemi)
+        if wallet.today_activity_bridge_eth:
+            if not sufficient_balance_eth_hemi:
+                return 'Waiting for incoming ETH deposit in Hemi'
+            # sufficient_balance_eth_hemi = True
+            # kind of hardcode because bridged funds take too much time to get to Hemi
+            # todo: add timer to check like time of bridge + 30 minutes the rebridge
+            #  or RECHECK BRIDGE STATUS IN SEPOLIA
 
-    eth_balance_hemi = await client_hemi.wallet.balance()
-    sufficient_balance_eth_hemi = float(eth_balance_hemi.Ether) > float(settings.minimal_balance_hemi)
-    if wallet.today_activity_bridge_eth:
-        if not sufficient_balance_eth_hemi:
-            return 'Waiting for incoming ETH deposit in Hemi'
-        # sufficient_balance_eth_hemi = True
-        # kind of hardcode because bridged funds take too much time to get to Hemi
+        usdc_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_USDC)
+        dai_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_DAI)
+        usdt_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_USDT)
 
-    usdc_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_USDC)
-    dai_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_DAI)
-    usdt_balance_sepolia = await client_sepolia.wallet.balance(token=Contracts.Sepolia_USDT)
-
-    usdc_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_USDCe)
-    dai_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_DAI)
-    usdt_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_USDTe)
+        usdc_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_USDCe)
+        dai_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_DAI)
+        usdt_balance_hemi = await client_hemi.wallet.balance(token=Contracts.Hemi_USDTe)
+    except TimeoutError as e:
+        logger.error(f'{wallet} {e}, probably shitty proxy or something with RPCs')
+        return None
 
     print(f'{wallet}: '
     f'Balances in Hemi: eth: {eth_balance_hemi.Ether}; usdc: {"{:.2f}".format(float(usdc_balance_hemi.Ether))}; '

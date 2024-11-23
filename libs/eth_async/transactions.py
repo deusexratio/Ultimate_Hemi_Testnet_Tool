@@ -89,7 +89,8 @@ class Tx(AutoRepr):
             'from': tx_data.get('from'),
             'to': tx_data.get('to'),
             'data': tx_data.get('input'),
-            'value': int(tx_data.get('value'))
+            'value': int(tx_data.get('value')),
+            'blockNumber': int(tx_data.get('blockNumber'))
         }
         return self.params
 

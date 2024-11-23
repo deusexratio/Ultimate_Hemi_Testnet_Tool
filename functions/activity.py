@@ -28,11 +28,15 @@ async def activity(queue):
             # Fill in next action time for newly initialized wallets in DB
             await activity_utils.first_time_launch_db()
 
-            # Get gas prices
-            client_sep = Client(private_key='', network=Networks.Sepolia)
-            gas_price_sep = await client_sep.transactions.gas_price()
-            client_hemi = Client(private_key='', network=Networks.Hemi_Testnet)
-            gas_price_hemi = await client_hemi.transactions.gas_price()
+            try:
+                # Get gas prices
+                client_sep = Client(private_key='', network=Networks.Sepolia)
+                gas_price_sep = await client_sep.transactions.gas_price()
+                client_hemi = Client(private_key='', network=Networks.Hemi_Testnet)
+                gas_price_hemi = await client_hemi.transactions.gas_price()
+            except asyncio.exceptions.TimeoutError:
+                logger.error('Error while fetching gas prices. Check your internet connection or change RPC')
+                continue
 
             # Select wallet from DB to do an activity
             wallet = await queue.get()

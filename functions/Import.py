@@ -1,7 +1,6 @@
 import csv
-import random
-
 from loguru import logger
+from better_proxy import Proxy
 
 from libs.eth_async.client import Client
 from libs.eth_async.data.models import Networks
@@ -23,16 +22,18 @@ class Import:
                 if skip_first_line:
                     skip_first_line = False
                     continue
+                pk = "".join(char for char in row[0] if not char.isspace())
+                proxy = "".join(char for char in row[1] if not char.isspace())
+                formatted_proxy = Proxy.from_str(proxy)
                 wallets.append(WalletCSV(
-                    private_key=row[0],
-                    proxy=row[1],
+                    private_key=pk,
+                    proxy=formatted_proxy.as_url,
                     name=row[2],
                 ))
         return wallets
 
     @staticmethod
     async def wallets():
-        settings = Settings()
         wallets = Import.get_wallets_from_csv(csv_path=config.IMPORT_FILE)
 
         imported = []

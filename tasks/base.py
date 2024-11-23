@@ -176,7 +176,7 @@ class Base:
                 if tx:
                     break
                 attempts += 1
-                print('checking attempts: ', attempts)
+                print(tx_hash, 'checking attempts: ', attempts)
                 await asyncio.sleep(3)
             try:
                 if tx:

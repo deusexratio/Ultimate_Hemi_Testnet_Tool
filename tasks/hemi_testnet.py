@@ -18,6 +18,8 @@ from libs.eth_async.utils.web_requests import async_post
 from libs.eth_async.client import Client
 from data.models import Contracts, Settings
 from tasks.base import Base
+from utils.db_api.models import Failed
+from utils.db_api.wallet_api import db
 
 
 class Hemi(Base):
@@ -99,18 +101,28 @@ class Hemi(Base):
         )
 
         tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
-        if isinstance(tx, (str | None)):
-            return f"{failed_text}! Didn't send transaction"
-        receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-        if receipt:
+        if isinstance(tx, Tx):
+            receipt = await tx.wait_for_receipt(client=self.client, timeout=1000, poll_latency=0.5)
             check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Hemi_Testnet)
             # check_tx_error = TxStatus(status='0', error=None)
             if check_tx_error.Error is False:
                 return f'{amount.Ether} {token.title} Created capsule: {tx.hash.hex()}'
+            elif not receipt:
+                return f'Sent transaction but did not get receipt! {amount.Ether} {token.title} Created capsule: {tx.hash.hex()}'
             else:
+                params = await tx.parse_params(client=self.client)
+                block_number = int(params.get('blockNumber'))
+                failed_tx_instance = Failed(
+                    tx_hash=tx.hash.hex().lower(),
+                    block=block_number,
+                    wallet_address=self.client.account.address.lower(),
+                    contract=contract.address.lower(),
+                    decreased_activity_for_today=True
+                )
+                db.insert(failed_tx_instance)
                 return f'{failed_text}! Tx reverted with reason: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
         else:
-            return f"{failed_text}! Didn't get receipt"
+            return f"{failed_text}! Didn't send transaction"
 
 
     async def swap(self, token: RawContract = None, route: str | None = None,
@@ -328,11 +340,7 @@ class Hemi(Base):
         else:
             return 'Incorrect route for swap'
         if isinstance(tx, Tx):
-            receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-        else:
-            print(route, tx_params)
-            return f"{failed_text} | all attempts failed. Didn't send transaction"
-        if receipt:
+            receipt = await tx.wait_for_receipt(client=self.client, timeout=1000, poll_latency=0.5)
             check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Hemi_Testnet)
             # check_tx_error = TxStatus(status='0', error=None)
             if check_tx_error.Error is False:
@@ -340,10 +348,28 @@ class Hemi(Base):
                     return f'{amount_eth.Ether} Eth was swapped to {amount_token.Ether} {token_name} : {tx.hash.hex()}'
                 if route == 'token_to_eth':
                     return f'{amount_token.Ether} {token_name} was swapped to {amount_eth.Ether} Eth : {tx.hash.hex()}'
+            elif not receipt:
+                if route == 'eth_to_token':
+                    return (f'Sent transaction but did not get receipt! {amount_eth.Ether} Eth'
+                            f' was swapped to {amount_token.Ether} {token_name} : {tx.hash.hex()}')
+                if route == 'token_to_eth':
+                    return (f'Sent transaction but did not get receipt! {amount_token.Ether} {token_name}'
+                            f' was swapped to {amount_eth.Ether} Eth : {tx.hash.hex()}')
             else:
+                params = await tx.parse_params(client=self.client)
+                block_number = int(params.get('blockNumber'))
+                failed_tx_instance = Failed(
+                    tx_hash=tx.hash.hex().lower(),
+                    block=block_number,
+                    wallet_address=self.client.account.address.lower(),
+                    contract=contract.address.lower(),
+                    decreased_activity_for_today=True
+                )
+                db.insert(failed_tx_instance)
                 return f'{failed_text}! Tx reverted with reason: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
         else:
-            return f"{failed_text} | all attempts failed. Didn't get receipt"
+            print(route, tx_params)
+            return f"{failed_text} | all attempts failed. Didn't send transaction"
 
 
     @staticmethod
@@ -476,19 +502,26 @@ class Hemi(Base):
             except Exception as e:
                 return failed_text, e
 
-        if type(tx) is str:
-            return f'{failed_text} | {tx}'
         if isinstance(tx, Tx):
-            receipt = await tx.wait_for_receipt(client=self.client, timeout=300)
-            if receipt:
-                check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Hemi_Testnet)
-                # check_tx_error = TxStatus(status='0', error=None)
-                if check_tx_error.Error is False:
-                    return f'Created safe for {self.client.account.address} : {tx.hash.hex()}'
-                else:
-                    return f'{failed_text}! Tx reverted with reason: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
+            receipt = await tx.wait_for_receipt(client=self.client, timeout=1000, poll_latency=0.5)
+            check_tx_error = await Base.check_tx(tx_hash=str(tx.hash.hex()), network=Networks.Hemi_Testnet)
+            # check_tx_error = TxStatus(status='0', error=None)
+            if check_tx_error.Error is False:
+                return f'Created safe for {self.client.account.address} : {tx.hash.hex()}'
+            elif not receipt:
+                return f'Sent transaction but did not get receipt! Created safe for {self.client.account.address} : {tx.hash.hex()}'
             else:
-                return f"{failed_text}! Didn't get receipt"
+                params = await tx.parse_params(client=self.client)
+                block_number = int(params.get('blockNumber'))
+                failed_tx_instance = Failed(
+                    tx_hash=tx.hash.hex().lower(),
+                    block=block_number,
+                    wallet_address=self.client.account.address.lower(),
+                    contract=contract.address.lower(),
+                    decreased_activity_for_today=True
+                )
+                db.insert(failed_tx_instance)
+                return f'{failed_text}! Tx reverted with reason: {check_tx_error.ErrDescription}, Tx_hash: {tx.hash.hex()}'
         else:
             return f"{failed_text}! Didn't send transaction"
 
@@ -630,12 +663,7 @@ class Sepolia(Base):
             return f'{failed_text}'
         if type(tx) is str:
             if 'replacement transaction underpriced' or 'replace' in tx:
-                tx_params = TxParams(
-                    to=contract.address,
-                    data=contract.encodeABI('depositETH', args=args.tuple()),
-                    value=amount.Wei,
-                    gasPrice=(await self.client.transactions.gas_price()).Wei * 2,
-                )
+                tx_params['gasPrice'] = (await self.client.transactions.gas_price()).Wei * 2
                 tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
                 if type(tx) is str:
                     return f'{failed_text} | {tx}'
@@ -706,12 +734,7 @@ class Sepolia(Base):
             return f'{failed_text}'
         if type(tx) is str:
             if 'replacement transaction underpriced' or 'replace' in tx:
-                tx_params = TxParams(
-                    to=contract.address,
-                    data=contract.encodeABI('depositERC20', args=args.tuple()),
-                    value=0,
-                    gasPrice=(await self.client.transactions.gas_price()).Wei * 2,
-                )
+                tx_params['gasPrice'] = (await self.client.transactions.gas_price()).Wei * 2
                 tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
                 if type(tx) is str:
                     return f'{failed_text} | {tx}'
@@ -768,12 +791,7 @@ class Sepolia(Base):
             return f'{failed_text}'
         if type(tx) is str:
             if 'replacement transaction underpriced' or 'replace' in tx:
-                tx_params = TxParams(
-                    to=contract.address,
-                    data=contract.encodeABI('mint', args=args.tuple()),
-                    value=0,
-                    gasPrice=(await self.client.transactions.gas_price()).Wei * 2,
-                )
+                tx_params['gasPrice'] = (await self.client.transactions.gas_price()).Wei * 2
                 tx = await self.client.transactions.sign_and_send(tx_params=tx_params)
                 if type(tx) is str:
                     return f'{failed_text} | {tx}'

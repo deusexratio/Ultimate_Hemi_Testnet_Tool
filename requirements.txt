@@ -17,3 +17,4 @@ hexbytes~=0.3.1
 eth_abi~=5.1.0
 uniswap-universal-router-decoder==1.2.0
 retry~=0.9.2
+better-proxy==1.1.5
