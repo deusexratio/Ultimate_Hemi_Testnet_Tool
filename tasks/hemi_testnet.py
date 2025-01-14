@@ -529,58 +529,62 @@ class Hemi(Base):
 class TestnetBridge(Base):
     @staticmethod
     async def get_price_seth(client: Client,
-                             amount_eth: TokenAmount | None = None,
+                             amount_eth: TokenAmount,
                              slippage: float = 5) -> int | str:
         headers = {
             'accept': '*/*',
             'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            'content-type': 'text/plain;charset=UTF-8',
+            'content-type': 'application/json',
             'origin': 'https://app.uniswap.org',
             'priority': 'u=1, i',
             'referer': 'https://app.uniswap.org/',
-            'sec-ch-ua': '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
+            'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
             'user-agent': UserAgent().chrome,
+            'x-api-key': 'JoyCGj29tT4pymvhaGciK4r1aIPvqW6W53xT1fwo',
+            'x-app-version': '',
             'x-request-source': 'uniswap-web',
+            'x-universal-router-version': '1.2',
         }
 
         data = {
-            "tokenInChainId": 10,
-            "tokenIn": "ETH",
-            "tokenOutChainId": 10,
-            "tokenOut": Contracts.Sepolia_Ether.address,
-            "amount": str(amount_eth.Wei),
-            "sendPortionEnabled": 'true',
-            "type": "EXACT_INPUT",
-            "intent": "quote",
-            "configs": [
+            'amount': str(amount_eth.Wei),
+            'gasStrategies': [
                 {
-                    "enableUniversalRouter": 'true',
-                    "protocols": [
-                        "V2",
-                        "V3",
-                        "MIXED"
-                    ],
-                    "routingType": "CLASSIC",
-                    "recipient": client.account.address,
-                    "enableFeeOnTransferFeeFetching": 'true'
-                }
+                    'limitInflationFactor': 1.15,
+                    'displayLimitInflationFactor': 1.15,
+                    'priceInflationFactor': 1.5,
+                    'percentileThresholdFor1559Fee': 75,
+                    'minPriorityFeeGwei': 2,
+                    'maxPriorityFeeGwei': 9,
+                },
             ],
-            "useUniswapX": 'true',
-            "swapper": client.account.address,
-            "slippageTolerance": 0.5 # hardcoded because API refused to give quotes with big slippage
+            'swapper': client.account.address,
+            'tokenIn': '0x0000000000000000000000000000000000000000',
+            'tokenInChainId': 42161,
+            'tokenOut': Contracts.Sepolia_Ether.address,
+            'tokenOutChainId': 42161,
+            'type': 'EXACT_INPUT',
+            'urgency': 'normal',
+            'protocols': [
+                'UNISWAPX_V2',
+                'V3',
+                'V2',
+            ],
+            'slippageTolerance': 2.5,
         }
+
         try:
-            response = await async_post(url='https://interface.gateway.uniswap.org/v2/quote',
+            response = await async_post(url='https://trading-api-labs.interface.gateway.uniswap.org/v1/quote',
                                     headers=headers, data=data, proxy=client.proxy)
         except HTTPException as e:
             print(e)
             return f"{client.account.address} : couldn't get SETH price"
-        seth_price = response['quote']['quoteGasAndPortionAdjusted']
+        seth_price = response['quote']['output']['amount']
         return int(seth_price) # returns int in wei
 
     async def bridge(self, slippage: float = 5) -> str | None:

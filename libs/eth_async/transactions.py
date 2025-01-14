@@ -163,40 +163,40 @@ class Transactions:
 
     async def max_priority_fee(self, block: dict | None = None) -> TokenAmount:
         # old method:
-        # w3 = Web3(provider=Web3.HTTPProvider(endpoint_uri=self.client.network.rpc))
-        # w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-        #
-        # if not block:
-        #     block = w3.eth.get_block('latest')
-        #
-        # block_number = block['number']
-        # latest_block_transaction_count = w3.eth.get_block_transaction_count(block_number)
-        # max_priority_fee_per_gas_lst = []
-        # for i in range(latest_block_transaction_count):
-        #     try:
-        #         transaction = w3.eth.get_transaction_by_block(block_number, i)
-        #         if 'maxPriorityFeePerGas' in transaction:
-        #             max_priority_fee_per_gas_lst.append(transaction['maxPriorityFeePerGas'])
-        #     except Exception:
-        #         continue
-        #
-        # if not max_priority_fee_per_gas_lst:
-        #     # max_priority_fee_per_gas = w3.eth.max_priority_fee
-        #     max_priority_fee_per_gas = 0
-        # else:
-        #     max_priority_fee_per_gas_lst.sort()
-        #     max_priority_fee_per_gas = max_priority_fee_per_gas_lst[len(max_priority_fee_per_gas_lst) // 2]
+        w3 = Web3(provider=Web3.HTTPProvider(endpoint_uri=self.client.network.rpc))
+        w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        if not block:
+            block = w3.eth.get_block('latest')
+
+        block_number = block['number']
+        latest_block_transaction_count = w3.eth.get_block_transaction_count(block_number)
+        max_priority_fee_per_gas_lst = []
+        for i in range(latest_block_transaction_count):
+            try:
+                transaction = w3.eth.get_transaction_by_block(block_number, i)
+                if 'maxPriorityFeePerGas' in transaction:
+                    max_priority_fee_per_gas_lst.append(transaction['maxPriorityFeePerGas'])
+            except Exception:
+                continue
+
+        if not max_priority_fee_per_gas_lst:
+            # max_priority_fee_per_gas = w3.eth.max_priority_fee
+            max_priority_fee_per_gas = 0
+        else:
+            max_priority_fee_per_gas_lst.sort()
+            max_priority_fee_per_gas = max_priority_fee_per_gas_lst[len(max_priority_fee_per_gas_lst) // 2]
 
         # new method
-        query = [
-            {
-                "id": random.randint(1,99),
-                "jsonrpc": "2.0",
-                "method": "eth_maxPriorityFeePerGas"
-            }
-        ]
-        response = await async_post(url=self.client.network.rpc, data=query)
-        max_priority_fee_per_gas = int(response[0]['result'], 16)
+        # query = [
+        #     {
+        #         "id": random.randint(1,99),
+        #         "jsonrpc": "2.0",
+        #         "method": "eth_maxPriorityFeePerGas"
+        #     }
+        # ]
+        # response = await async_post(url=self.client.network.rpc, data=query)
+        # max_priority_fee_per_gas = int(response[0]['result'], 16)
 
         return TokenAmount(amount=max_priority_fee_per_gas, wei=True, decimals=self.client.network.decimals)
 
